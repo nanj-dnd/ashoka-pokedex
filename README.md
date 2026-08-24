@@ -3,7 +3,7 @@
 A field guide to the creatures of Ashoka University. Pixel-art Pokedex interface,
 gated by access code, with an admin capture flow and a two-admin approval queue.
 
-Intended home: **pokedex.primafacie.in**
+Lives at: **primafacie.in**
 
 ---
 
@@ -51,7 +51,10 @@ set up Supabase.
 
 ---
 
-## Deploy to pokedex.primafacie.in
+## Deploy to primafacie.in
+
+The Pokedex **takes over the apex domain**. The existing Prima Facie dating app
+stops being served there — see the warning at the end of this section.
 
 **1. Supabase**
 
@@ -59,6 +62,8 @@ set up Supabase.
   SQL editor. It creates both tables, locks them with deny-by-default RLS, and
   creates the public `dex-media` storage bucket.
 - Copy the project URL and the **service role** key from Settings → API.
+
+Use a *new* Supabase project, not the dating app's. They share nothing.
 
 **2. Push this repo to GitHub**, then import it in Vercel as a new project.
 
@@ -73,17 +78,35 @@ set up Supabase.
 | `SUPABASE_SERVICE_ROLE_KEY` | service role key (server-only, never `NEXT_PUBLIC_`) |
 | `SUPABASE_STORAGE_BUCKET` | `dex-media` |
 | `REQUIRED_APPROVALS` | `2` |
+| `NEXT_PUBLIC_SITE_URL` | `https://primafacie.in` |
 
-**4. Domain.** In the Vercel project → Settings → Domains, add
-`pokedex.primafacie.in`. Vercel will show a CNAME target; add that record at
-whoever hosts DNS for `primafacie.in`:
+**4. Move the domain.** Vercel will not let two projects claim the same domain,
+so the order matters:
+
+1. Old Prima Facie project → Settings → Domains → **remove** `primafacie.in`
+   (and `www.primafacie.in`).
+2. This project → Settings → Domains → **add** `primafacie.in`, and add
+   `www.primafacie.in` set to redirect to the apex.
+
+If DNS already points at Vercel, that's the whole job — no DNS edit needed, and
+the switch is near-instant. If you're starting from scratch, the apex record is:
 
 ```
-CNAME   pokedex   cname.vercel-dns.com.
+A       @      76.76.21.21
+CNAME   www    cname.vercel-dns.com.
 ```
 
-**5. Link from the main site.** Drop a button on primafacie.in pointing at
-`https://pokedex.primafacie.in`.
+(Vercel shows the exact values in the Domains tab — prefer those over these.)
+
+**5. Verify** `https://primafacie.in` serves the code gate, and that the old
+`/apply` and `/sign-in` routes now 404. Paste the link into a chat to check the
+share preview renders.
+
+> **Before you flip it.** Taking the apex means anyone the dating app already
+> accepted loses their sign-in page — their accounts and data stay in that
+> Supabase project untouched, but the URL they were told to visit stops working.
+> If you ever want it back, keep the old Vercel project (just without the
+> domain) rather than deleting it; re-adding the domain restores it in a minute.
 
 ---
 

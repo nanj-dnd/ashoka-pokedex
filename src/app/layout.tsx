@@ -16,9 +16,27 @@ const terminal = VT323({
   display: "swap",
 });
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://primafacie.in";
+const DESCRIPTION = "A field guide to the creatures of Ashoka University. Access code required.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "ASHOKA POKEDEX",
-  description: "A field guide to the creatures of Ashoka University.",
+  description: DESCRIPTION,
+  // This link gets pasted into group chats — make the unfurl look like the app.
+  openGraph: {
+    title: "ASHOKA POKEDEX",
+    description: DESCRIPTION,
+    url: SITE,
+    siteName: "Ashoka Pokedex",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ASHOKA POKEDEX",
+    description: DESCRIPTION,
+  },
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
