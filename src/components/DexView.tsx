@@ -140,7 +140,7 @@ export function DexView({ role, handle }: { role: "admin" | "public"; handle: st
         <div className="grid">
           {shown.map((c) => {
             const isSeen = seen.has(c.id);
-            const ink = (RARITY_STYLE[c.rarity] ?? RARITY_STYLE.COMMON).ink;
+            const ink = (RARITY_STYLE[c.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
             return (
               <div
                 key={c.id}

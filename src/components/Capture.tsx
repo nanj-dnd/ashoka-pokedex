@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HABITATS, RARITIES, RARITY_HINT, RARITY_STYLE, STATS, TYPES } from "@/lib/constants";
-import type { CreatureType, Rarity } from "@/lib/constants";
+import { BATCHES, HABITATS, STATS, TYPES, TYPE_HINT, batchLabel } from "@/lib/constants";
+import type { CreatureType } from "@/lib/constants";
 import { processCapture, processFile, type CapturedImages } from "@/lib/pixelate";
 import { api, sfx } from "@/lib/client";
-import { RarityBadge, TypeChip } from "./Bits";
+import { TypeChip } from "./Bits";
 import type { Stats } from "@/lib/types";
 
-const BLANK_STATS: Stats = { vibe: 50, chaos: 50, academia: 50, social: 50, stamina: 50, mystery: 50 };
+const BLANK_STATS: Stats = { aura: 50, rizz: 50, yap: 50, chaos: 50, grind: 50, cooked: 50 };
+
+/** Form accent. Rarity is earned later, so there's no rarity colour to borrow. */
+const INK = "#35d6e6";
 
 export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -23,9 +26,8 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [types, setTypes] = useState<CreatureType[]>([]);
-  const [rarity, setRarity] = useState<Rarity>("COMMON");
   const [habitat, setHabitat] = useState<string>(HABITATS[0]);
-  const [batch, setBatch] = useState("");
+  const [batch, setBatch] = useState<string>(BATCHES[0]);
   const [traits, setTraits] = useState<string[]>([]);
   const [traitDraft, setTraitDraft] = useState("");
   const [entry, setEntry] = useState("");
@@ -60,7 +62,6 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
       setLive(true);
       sfx.open();
     } catch {
-      // Blocked, unsupported, or no camera — the file picker still works.
       setCamError("CAMERA UNAVAILABLE — USE UPLOAD");
     }
   }
@@ -68,8 +69,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
   function shoot() {
     if (!videoRef.current) return;
     try {
-      const images = processCapture(videoRef.current);
-      setShot(images);
+      setShot(processCapture(videoRef.current));
       setFlash(true);
       sfx.shutter();
       setTimeout(() => setFlash(false), 360);
@@ -110,9 +110,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
   function rollStats() {
     sfx.open();
     setStats(
-      Object.fromEntries(
-        STATS.map(({ key }) => [key, 20 + Math.floor(Math.random() * 76)]),
-      ) as Stats,
+      Object.fromEntries(STATS.map(({ key }) => [key, 20 + Math.floor(Math.random() * 76)])) as Stats,
     );
   }
 
@@ -121,9 +119,8 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
     setName("");
     setTitle("");
     setTypes([]);
-    setRarity("COMMON");
     setHabitat(HABITATS[0]);
-    setBatch("");
+    setBatch(BATCHES[0]);
     setTraits([]);
     setTraitDraft("");
     setEntry("");
@@ -147,7 +144,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
       await api("/api/creatures", {
         method: "POST",
         body: JSON.stringify({
-          name, title, types, rarity, habitat, batch,
+          name, title, types, habitat, batch,
           characteristics: traits, entry, quote, stats, spriteUrl, photoUrl,
         }),
       });
@@ -162,8 +159,6 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
       setBusy(false);
     }
   }
-
-  const ink = RARITY_STYLE[rarity].ink;
 
   return (
     <div className="stack">
@@ -182,9 +177,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
               <span className="label blink">NO SIGNAL</span>
             </div>
           ) : null}
-          {live || shot ? (
-            <div className="reticle" aria-hidden><i /><i /><i /><i /></div>
-          ) : null}
+          {live || shot ? <div className="reticle" aria-hidden><i /><i /><i /><i /></div> : null}
           {flash ? <div className="flash" aria-hidden /> : null}
         </div>
 
@@ -225,7 +218,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
           </div>
           <div>
             <div className="label" style={{ marginBottom: 6 }}>TITLE</div>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Mess Hall Prophet" maxLength={60} />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The 3AM Dhaba Prophet" maxLength={60} />
           </div>
         </div>
 
@@ -237,42 +230,34 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
             </select>
           </div>
           <div>
-            <div className="label" style={{ marginBottom: 6 }}>BATCH / YEAR</div>
-            <input value={batch} onChange={(e) => setBatch(e.target.value)} placeholder="UG26" maxLength={20} />
-          </div>
-        </div>
-
-        <div>
-          <div className="label" style={{ marginBottom: 8 }}>TYPE — PICK UP TO 3 ({types.length}/3)</div>
-          <div className="chip-row">
-            {TYPES.map((t) => (
-              <span
-                key={t}
-                onClick={() => toggleType(t)}
-                style={{ cursor: "pointer", opacity: types.includes(t) ? 1 : 0.42 }}
-              >
-                <TypeChip type={t} outline={!types.includes(t)} />
-              </span>
-            ))}
+            <div className="label" style={{ marginBottom: 6 }}>BATCH</div>
+            <select value={batch} onChange={(e) => setBatch(e.target.value)}>
+              {BATCHES.map((b) => <option key={b} value={b}>{batchLabel(b)}</option>)}
+            </select>
           </div>
         </div>
       </div>
 
-      {/* ------------------------------- rarity ---------------------------- */}
+      {/* -------------------------------- types ---------------------------- */}
       <div className="plate stack">
-        <div className="label">STEP 3 — RARITY</div>
+        <div className="label">STEP 3 — TYPING — PICK UP TO 3 ({types.length}/3)</div>
         <div className="chip-row">
-          {RARITIES.map((r) => (
+          {TYPES.map((t) => (
             <span
-              key={r}
-              onClick={() => { sfx.move(); setRarity(r); }}
-              style={{ cursor: "pointer", opacity: rarity === r ? 1 : 0.35 }}
+              key={t}
+              onClick={() => toggleType(t)}
+              title={TYPE_HINT[t]}
+              style={{ cursor: "pointer", opacity: types.includes(t) ? 1 : 0.42 }}
             >
-              <RarityBadge rarity={r} />
+              <TypeChip type={t} outline={!types.includes(t)} />
             </span>
           ))}
         </div>
-        <div className="body-text dim">{RARITY_HINT[rarity]}</div>
+        {types.length ? (
+          <div className="body-text dim">{TYPE_HINT[types[types.length - 1]]}</div>
+        ) : (
+          <div className="body-text dim">Hover a type to see what it means.</div>
+        )}
       </div>
 
       {/* --------------------------- characteristics ----------------------- */}
@@ -297,7 +282,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
                 style={{ cursor: "pointer" }}
                 title="Click to remove"
               >
-                <span className="chip outline" style={{ ["--chip-color" as string]: ink }}>{t} ×</span>
+                <span className="chip outline" style={{ ["--chip-color" as string]: INK }}>{t} ×</span>
               </span>
             ))}
           </div>
@@ -308,7 +293,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
           <textarea
             value={entry}
             onChange={(e) => setEntry(e.target.value)}
-            placeholder="Known to appear at the dhaba at 3am. Emits a low hum when approached before noon."
+            placeholder="Materialises at the dhaba after midnight. Emits a low hum when approached before noon."
             maxLength={400}
           />
         </div>
@@ -335,11 +320,19 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
               max={100}
               value={stats[key]}
               onChange={(e) => setStats({ ...stats, [key]: Number(e.target.value) })}
-              style={{ ["--bar-c" as string]: ink }}
+              style={{ ["--bar-c" as string]: INK }}
             />
             <span className="stat-val">{stats[key]}</span>
           </div>
         ))}
+      </div>
+
+      <div className="plate">
+        <div className="label" style={{ marginBottom: 6 }}>RARITY IS EARNED</div>
+        <div className="body-text dim">
+          Everyone enters the dex as UNCOMMON. They climb as more of campus reports
+          seeing them — you don&apos;t get to set it.
+        </div>
       </div>
 
       {error ? <div className="err shake">{error}</div> : null}

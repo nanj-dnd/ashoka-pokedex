@@ -14,7 +14,11 @@ create table if not exists public.creatures (
   name             text not null,
   title            text default '',
   types            text[] default '{}',
-  rarity           text not null default 'COMMON',
+  -- LEGACY. Rarity is no longer stored: it is computed at read time from how
+  -- many active players have marked this creature seen (see src/lib/rarity.ts).
+  -- The column is kept so existing rows stay valid; the app writes 'UNCOMMON'
+  -- into it and never reads it back.
+  rarity           text not null default 'UNCOMMON',
   habitat          text default '',
   batch            text default '',
   characteristics  text[] default '{}',

@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { BASE_RARITY } from "./constants";
 import type { Creature, CreatureStatus } from "./types";
 
 /* -------------------------------------------------------------------------- */
@@ -80,7 +81,6 @@ function toCreature(row: any): Creature {
     name: row.name,
     title: row.title ?? "",
     types: row.types ?? [],
-    rarity: row.rarity,
     habitat: row.habitat ?? "",
     batch: row.batch ?? "",
     characteristics: row.characteristics ?? [],
@@ -104,7 +104,9 @@ function toRow(c: Creature): Record<string, unknown> {
     name: c.name,
     title: c.title,
     types: c.types,
-    rarity: c.rarity,
+    // The column is NOT NULL and legacy; rarity is computed at read time now
+    // (see lib/rarity.ts), so this value is written but never read back.
+    rarity: BASE_RARITY,
     habitat: c.habitat,
     batch: c.batch,
     characteristics: c.characteristics,
@@ -253,6 +255,21 @@ export async function seenCounts(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   for (const s of local.sightings) out[s.creatureId] = (out[s.creatureId] ?? 0) + 1;
   return out;
+}
+
+/**
+ * How many distinct devices are actually playing — the denominator for earned
+ * rarity. Derived from sightings rather than a separate table: someone who has
+ * never marked anyone seen isn't participating in the ranking.
+ */
+export async function activePlayers(): Promise<number> {
+  if (usingSupabase) {
+    const { data, error } = await db().from("sightings").select("device_id");
+    if (error) throw new Error(`activePlayers: ${error.message}`);
+    return new Set((data ?? []).map((r) => r.device_id as string)).size;
+  }
+  const local = await readLocal();
+  return new Set(local.sightings.map((s) => s.deviceId)).size;
 }
 
 /* ---------------------------------- media --------------------------------- */

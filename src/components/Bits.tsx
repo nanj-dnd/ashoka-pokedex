@@ -17,7 +17,7 @@ export function TypeChip({ type, outline }: { type: CreatureType; outline?: bool
 }
 
 export function RarityBadge({ rarity }: { rarity: Rarity }) {
-  const s = RARITY_STYLE[rarity] ?? RARITY_STYLE.COMMON;
+  const s = RARITY_STYLE[rarity] ?? RARITY_STYLE.UNCOMMON;
   return (
     <span
       className={`rarity${rarity === "MYTHIC" ? " mythic" : ""}`}

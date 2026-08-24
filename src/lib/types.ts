@@ -1,4 +1,5 @@
-import type { CreatureType, Rarity, StatKey } from "./constants";
+import type { CreatureType, StatKey } from "./constants";
+import type { RarityStanding } from "./rarity";
 
 export type Role = "admin" | "public";
 
@@ -20,7 +21,6 @@ export interface Creature {
   /** Short subtitle, e.g. "The Mess Hall Prophet". */
   title: string;
   types: CreatureType[];
-  rarity: Rarity;
   habitat: string;
   batch: string;
   /** Free-form trait chips. */
@@ -38,10 +38,13 @@ export interface Creature {
   approvedAt: string | null;
 }
 
-/** What the public dex is allowed to know. Strips submitter + vote history. */
-export type PublicCreature = Omit<Creature, "votes" | "submittedBy" | "status"> & {
-  seenCount: number;
-};
+/**
+ * What the public dex is allowed to know. Strips submitter + vote history, and
+ * adds the earned rarity standing, which is computed at read time rather than
+ * stored — see lib/rarity.ts.
+ */
+export type PublicCreature = Omit<Creature, "votes" | "submittedBy" | "status"> &
+  RarityStanding;
 
 export interface SessionPayload {
   role: Role;
@@ -51,3 +54,4 @@ export interface SessionPayload {
 
 // Re-exported so callers can pull the whole vocabulary from one module.
 export type { CreatureType, Rarity, StatKey } from "./constants";
+export type { RarityStanding } from "./rarity";

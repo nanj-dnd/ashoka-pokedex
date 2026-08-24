@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RARITY_STYLE } from "@/lib/constants";
+import { RARITY_FLAVOUR, RARITY_STYLE, batchLabel } from "@/lib/constants";
 import { sfx } from "@/lib/client";
 import { RarityBadge, StatBars, TypeChip } from "./Bits";
 import type { PublicCreature } from "@/lib/types";
@@ -19,7 +19,7 @@ export function CreatureDetail({
 }) {
   // Sprite by default; the real photo is the reward for opening the entry.
   const [showPhoto, setShowPhoto] = useState(false);
-  const ink = (RARITY_STYLE[creature.rarity] ?? RARITY_STYLE.COMMON).ink;
+  const ink = (RARITY_STYLE[creature.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -74,8 +74,28 @@ export function CreatureDetail({
               </button>
             ) : null}
 
-            <div className="label center" style={{ marginTop: 10 }}>
-              {creature.seenCount} TRAINER{creature.seenCount === 1 ? "" : "S"} SPOTTED
+            <div className="plate" style={{ marginTop: 12 }}>
+              <div className="label" style={{ marginBottom: 6 }}>SIGHTINGS</div>
+              <div className="body-text">
+                {creature.seenCount} of {creature.activePlayers} trainer
+                {creature.activePlayers === 1 ? "" : "s"}
+                {creature.activePlayers > 0
+                  ? ` · ${Math.round(creature.share * 100)}%`
+                  : ""}
+              </div>
+              <div className="bar" style={{ marginTop: 8 }}>
+                <div
+                  className="bar-fill"
+                  style={{ width: `${Math.min(100, creature.share * 100)}%`, ["--bar-c" as string]: ink }}
+                />
+              </div>
+              {creature.next ? (
+                <div className="label" style={{ marginTop: 8 }}>
+                  {creature.next.sightingsNeeded} MORE → {creature.next.rarity}
+                </div>
+              ) : (
+                <div className="label amber" style={{ marginTop: 8 }}>TOP OF THE LADDER</div>
+              )}
             </div>
           </div>
 
@@ -92,6 +112,9 @@ export function CreatureDetail({
                   {creature.title}
                 </div>
               ) : null}
+              <div className="body-text dim" style={{ marginTop: 6 }}>
+                {RARITY_FLAVOUR[creature.rarity]}
+              </div>
             </div>
 
             <div className="plate">
@@ -99,7 +122,7 @@ export function CreatureDetail({
                 <span className="label">HABITAT</span>
                 <span className="body-text">{creature.habitat || "UNKNOWN"}</span>
                 <span className="label">BATCH</span>
-                <span className="body-text">{creature.batch || "UNKNOWN"}</span>
+                <span className="body-text">{batchLabel(creature.batch) || "UNKNOWN"}</span>
               </div>
             </div>
 

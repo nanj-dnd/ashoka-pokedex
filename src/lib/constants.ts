@@ -3,102 +3,177 @@
  * Everything here is display-facing — edit freely to re-flavour the dex.
  */
 
-export const RARITIES = [
-  "COMMON",
-  "UNCOMMON",
-  "RARE",
-  "EPIC",
-  "LEGENDARY",
-  "MYTHIC",
-] as const;
+/* -------------------------------------------------------------------------- */
+/*  Rarity — EARNED, never assigned                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Rarity is not a property an admin types in. Everyone enters the dex as
+ * UNCOMMON and climbs as more of the campus reports seeing them, measured as a
+ * share of everyone actively playing. So "rarity" here means notoriety: how
+ * widely known you are, not how scarce.
+ */
+export const RARITIES = ["UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"] as const;
 
 export type Rarity = (typeof RARITIES)[number];
 
-/** Frame + glow colours per rarity, consumed by CSS custom properties. */
+export const BASE_RARITY: Rarity = "UNCOMMON";
+
+/**
+ * A tier needs BOTH a share of the active player base and a floor of raw
+ * sightings — otherwise the first two people on the platform crown each other
+ * MYTHIC on day one.
+ */
+export const RARITY_LADDER: { rarity: Rarity; share: number; minSightings: number }[] = [
+  { rarity: "MYTHIC", share: 0.75, minSightings: 12 },
+  { rarity: "LEGENDARY", share: 0.5, minSightings: 8 },
+  { rarity: "EPIC", share: 0.3, minSightings: 5 },
+  { rarity: "RARE", share: 0.15, minSightings: 3 },
+  { rarity: "UNCOMMON", share: 0, minSightings: 0 },
+];
+
 export const RARITY_STYLE: Record<Rarity, { ink: string; glow: string; label: string }> = {
-  COMMON: { ink: "#8b9bb4", glow: "rgba(139,155,180,0.45)", label: "COMMON" },
-  UNCOMMON: { ink: "#4ade80", glow: "rgba(74,222,128,0.45)", label: "UNCOMMON" },
+  UNCOMMON: { ink: "#8b9bb4", glow: "rgba(139,155,180,0.45)", label: "UNCOMMON" },
   RARE: { ink: "#38bdf8", glow: "rgba(56,189,248,0.5)", label: "RARE" },
   EPIC: { ink: "#c084fc", glow: "rgba(192,132,252,0.55)", label: "EPIC" },
   LEGENDARY: { ink: "#fbbf24", glow: "rgba(251,191,36,0.6)", label: "LEGENDARY" },
   MYTHIC: { ink: "#fb7185", glow: "rgba(251,113,133,0.65)", label: "MYTHIC" },
 };
 
-/** Roughly how many of each rarity should exist — shown as guidance in admin. */
-export const RARITY_HINT: Record<Rarity, string> = {
-  COMMON: "You see them every single day.",
-  UNCOMMON: "Reliably around, if you know where to look.",
-  RARE: "A good week if you spot them.",
-  EPIC: "Sightings get reported to friends.",
-  LEGENDARY: "Half the campus doubts they exist.",
-  MYTHIC: "One of one. Handle with reverence.",
+/** Shown on the detail card so the ladder isn't a mystery. */
+export const RARITY_FLAVOUR: Record<Rarity, string> = {
+  UNCOMMON: "Barely on the radar. Someone knows you exist.",
+  RARE: "Word is getting around.",
+  EPIC: "A third of campus can place your face.",
+  LEGENDARY: "Half of Ashoka has seen you in the wild.",
+  MYTHIC: "Functionally a campus landmark.",
 };
 
-/** Pokemon-style typing, re-cut for campus life. */
+/* -------------------------------------------------------------------------- */
+/*  Types — personality, not geography                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Where someone hangs out is the HABITAT. Type is what they *are*. */
 export const TYPES = [
-  "ACADEMIC",
-  "MESS",
-  "DHABA",
-  "LIBRARY",
-  "SPORTS",
-  "THEATRE",
-  "MUSIC",
-  "DEBATE",
-  "NIGHTOWL",
-  "SOCIETY",
-  "POLITICS",
-  "ART",
-  "CODE",
-  "FILM",
-  "FITNESS",
-  "WANDERER",
+  "YAPPER",
+  "GHOST",
+  "GYMBRO",
+  "SITUATIONSHIP",
+  "ACAD WEAPON",
+  "DELULU",
+  "MAIN CHARACTER",
+  "NPC",
+  "RIZZLER",
+  "NOCTURNAL",
+  "CAFFEINATED",
+  "MENACE",
+  "OVERCOMMITTED",
+  "FREELOADER",
+  "CRASHOUT",
+  "GRASS-TOUCHER",
 ] as const;
 
 export type CreatureType = (typeof TYPES)[number];
 
 export const TYPE_COLOR: Record<CreatureType, string> = {
-  ACADEMIC: "#7c9cff",
-  MESS: "#f59e0b",
-  DHABA: "#ef4444",
-  LIBRARY: "#a78bfa",
-  SPORTS: "#22c55e",
-  THEATRE: "#e879f9",
-  MUSIC: "#f472b6",
-  DEBATE: "#facc15",
-  NIGHTOWL: "#6366f1",
-  SOCIETY: "#2dd4bf",
-  POLITICS: "#fb923c",
-  ART: "#c4b5fd",
-  CODE: "#4ade80",
-  FILM: "#94a3b8",
-  FITNESS: "#f87171",
-  WANDERER: "#38bdf8",
+  YAPPER: "#f59e0b",
+  GHOST: "#94a3b8",
+  GYMBRO: "#ef4444",
+  SITUATIONSHIP: "#fb7185",
+  "ACAD WEAPON": "#7c9cff",
+  DELULU: "#e879f9",
+  "MAIN CHARACTER": "#fbbf24",
+  NPC: "#64748b",
+  RIZZLER: "#f472b6",
+  NOCTURNAL: "#6366f1",
+  CAFFEINATED: "#a16207",
+  MENACE: "#dc2626",
+  OVERCOMMITTED: "#2dd4bf",
+  FREELOADER: "#84cc16",
+  CRASHOUT: "#fb923c",
+  "GRASS-TOUCHER": "#22c55e",
 };
 
-/** Where this creature is usually encountered. */
+/** One-liners shown while picking, so the types stay legible to everyone. */
+export const TYPE_HINT: Record<CreatureType, string> = {
+  YAPPER: "Has never finished a story.",
+  GHOST: "Left you on read in 2024.",
+  GYMBRO: "Rest day is a myth.",
+  SITUATIONSHIP: "It's complicated, allegedly.",
+  "ACAD WEAPON": "Ruins the curve on purpose.",
+  DELULU: "The plan is not going to work.",
+  "MAIN CHARACTER": "Walks like there's a soundtrack.",
+  NPC: "Same four sentences, every time.",
+  RIZZLER: "Unreasonably smooth.",
+  NOCTURNAL: "Peaks at 3am.",
+  CAFFEINATED: "Vibrating slightly.",
+  MENACE: "Banned from at least one group chat.",
+  OVERCOMMITTED: "In nine societies, present in none.",
+  FREELOADER: "Added their name to the slides.",
+  CRASHOUT: "One bad email from detonating.",
+  "GRASS-TOUCHER": "Genuinely goes outside.",
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Habitat — where they're actually found                                     */
+/* -------------------------------------------------------------------------- */
+
+const AC = Array.from({ length: 7 }, (_, i) => `AC-0${i + 1}`);
+const RH = Array.from({ length: 7 }, (_, i) => `RH-0${i + 1}`);
+
 export const HABITATS = [
+  ...AC,
+  ...RH,
   "THE MESS",
   "THE DHABA",
   "THE LIBRARY",
-  "AC-01",
-  "AC-02",
-  "AC-03",
   "SPORTS BLOCK",
   "AMPHITHEATRE",
-  "RESIDENCE HALL",
   "THE LAWN",
   "CAFETERIA",
   "ROAMING",
 ] as const;
 
-/** The six-stat block, drawn as pixel bars on the card. */
+/* -------------------------------------------------------------------------- */
+/*  Batch                                                                      */
+/* -------------------------------------------------------------------------- */
+
+export const BATCHES = ["UG2026", "UG2025", "UG2024", "UG2023"] as const;
+
+/**
+ * Which year of college a batch is currently in. Derived from the date rather
+ * than hardcoded, so the dex doesn't quietly go stale every July.
+ */
+export function collegeYear(batch: string, now = new Date()): string {
+  const entry = Number(/(\d{4})/.exec(batch)?.[1]);
+  if (!Number.isFinite(entry)) return "";
+  // The academic year rolls over in July.
+  const academicStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  const year = academicStart - entry + 1;
+  const ordinal = ["1ST", "2ND", "3RD", "4TH"][year - 1];
+  if (year <= 0) return "INCOMING";
+  return ordinal ? `${ordinal} YEAR` : "ALUM";
+}
+
+/** "UG26 · 2ND YEAR" */
+export function batchLabel(batch: string, now = new Date()): string {
+  if (!batch) return "";
+  const short = batch.replace(/^UG20/, "UG");
+  const year = collegeYear(batch, now);
+  return year ? `${short} · ${year}` : short;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Stats                                                                      */
+/* -------------------------------------------------------------------------- */
+
 export const STATS = [
-  { key: "vibe", label: "VIBE" },
+  { key: "aura", label: "AURA" },
+  { key: "rizz", label: "RIZZ" },
+  { key: "yap", label: "YAP" },
   { key: "chaos", label: "CHAOS" },
-  { key: "academia", label: "ACADEMIA" },
-  { key: "social", label: "SOCIAL" },
-  { key: "stamina", label: "STAMINA" },
-  { key: "mystery", label: "MYSTERY" },
+  { key: "grind", label: "GRIND" },
+  { key: "cooked", label: "COOKED" },
 ] as const;
 
 export type StatKey = (typeof STATS)[number]["key"];

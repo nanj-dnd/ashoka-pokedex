@@ -29,6 +29,24 @@ Admins pick a **handle** when they enter (e.g. `ANSHUL`). It signs their votes.
 
 Change the threshold with `REQUIRED_APPROVALS` in the environment.
 
+**Rarity is earned, never assigned.** Admins do not pick a rarity. Everyone enters
+the dex as `UNCOMMON` and climbs as more of the campus reports seeing them,
+measured as a share of the *active* player base (distinct devices that have
+marked at least one sighting). So rarity here means notoriety, not scarcity.
+
+| Tier | Share of players | Min sightings |
+|------|------------------|---------------|
+| `UNCOMMON` | — | — |
+| `RARE` | 15% | 3 |
+| `EPIC` | 30% | 5 |
+| `LEGENDARY` | 50% | 8 |
+| `MYTHIC` | 75% | 12 |
+
+A tier needs *both* conditions, so the first two people on the platform can't
+crown each other MYTHIC on day one. Thresholds scale as the dex grows: at 10
+players LEGENDARY takes 8 sightings, at 40 players it takes 20. The ladder lives
+in `src/lib/constants.ts` (`RARITY_LADDER`) and the maths in `src/lib/rarity.ts`.
+
 **Seen tracking** is per-device — a random id in `localStorage`, no accounts.
 The same browser keeps its progress across both codes.
 

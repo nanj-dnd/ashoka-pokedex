@@ -2,19 +2,25 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/session";
 import { storeError } from "@/lib/apiError";
-import { listCreatures, saveCreature, seenCounts } from "@/lib/store";
-import { RARITIES, STATS, TYPES } from "@/lib/constants";
+import { activePlayers, listCreatures, saveCreature, seenCounts } from "@/lib/store";
+import { BATCHES, HABITATS, STATS, TYPES } from "@/lib/constants";
 import type { Creature, PublicCreature, Stats } from "@/lib/types";
-import type { CreatureType, Rarity } from "@/lib/constants";
+import type { CreatureType } from "@/lib/constants";
+import { standingFor } from "@/lib/rarity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function toPublic(c: Creature, counts: Record<string, number>): PublicCreature {
+function toPublic(
+  c: Creature,
+  counts: Record<string, number>,
+  players: number,
+): PublicCreature {
   /* eslint-disable @typescript-eslint/no-unused-vars */
   const { votes, submittedBy, status, ...rest } = c;
   /* eslint-enable @typescript-eslint/no-unused-vars */
-  return { ...rest, seenCount: counts[c.id] ?? 0 };
+  // Rarity is earned from sightings, never read from the row.
+  return { ...rest, ...standingFor(counts[c.id] ?? 0, players) };
 }
 
 /**
@@ -37,9 +43,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ creatures: pending });
     }
 
-    const [approved, counts] = await Promise.all([listCreatures("approved"), seenCounts()]);
+    const [approved, counts, players] = await Promise.all([
+      listCreatures("approved"),
+      seenCounts(),
+      activePlayers(),
+    ]);
     const sorted = approved.sort((a, b) => (a.dexNumber ?? 0) - (b.dexNumber ?? 0));
-    return NextResponse.json({ creatures: sorted.map((c) => toPublic(c, counts)) });
+    return NextResponse.json({
+      activePlayers: players,
+      creatures: sorted.map((c) => toPublic(c, counts, players)),
+    });
   } catch (e) {
     return storeError(e);
   }
@@ -71,10 +84,6 @@ export async function POST(req: Request) {
   const spriteUrl = str(body.spriteUrl, 500);
   if (!spriteUrl) return NextResponse.json({ error: "PHOTO REQUIRED" }, { status: 400 });
 
-  const rarity = (RARITIES as readonly string[]).includes(String(body.rarity))
-    ? (body.rarity as Rarity)
-    : "COMMON";
-
   const types = Array.isArray(body.types)
     ? (body.types.filter((t) => (TYPES as readonly string[]).includes(String(t))) as CreatureType[]).slice(0, 3)
     : [];
@@ -94,9 +103,12 @@ export async function POST(req: Request) {
     name,
     title: str(body.title, 60),
     types,
-    rarity,
-    habitat: str(body.habitat, 40),
-    batch: str(body.batch, 20),
+    habitat: (HABITATS as readonly string[]).includes(str(body.habitat, 40))
+      ? str(body.habitat, 40)
+      : "",
+    batch: (BATCHES as readonly string[]).includes(str(body.batch, 20))
+      ? str(body.batch, 20)
+      : "",
     characteristics,
     entry: str(body.entry, 400),
     quote: str(body.quote, 160),

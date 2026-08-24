@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RARITY_STYLE } from "@/lib/constants";
+import { BASE_RARITY, RARITY_STYLE, batchLabel } from "@/lib/constants";
 import { api, sfx } from "@/lib/client";
 import { Shell } from "./Shell";
 import { Pips, RarityBadge, SfxToggle, TypeChip } from "./Bits";
@@ -124,7 +124,8 @@ export function AdminView({ handle, needed }: { handle: string; needed: number }
             const rejections = c.votes.filter((v) => v.vote === "reject").length;
             const mine = c.votes.find((v) => v.handle === handle);
             const own = c.submittedBy === handle;
-            const ink = (RARITY_STYLE[c.rarity] ?? RARITY_STYLE.COMMON).ink;
+            // Pending entries have no sightings yet, so everyone sits at base rarity.
+            const ink = RARITY_STYLE[BASE_RARITY].ink;
 
             return (
               <div className="plate" key={c.id}>
@@ -135,13 +136,13 @@ export function AdminView({ handle, needed }: { handle: string; needed: number }
                     {c.title ? <div className="body-text dim">{c.title}</div> : null}
 
                     <div className="chip-row" style={{ margin: "10px 0" }}>
-                      <RarityBadge rarity={c.rarity} />
+                      <RarityBadge rarity={BASE_RARITY} />
                       {c.types.map((t) => <TypeChip key={t} type={t} />)}
                     </div>
 
                     <div className="label">
                       BY {c.submittedBy || "UNKNOWN"} · {c.habitat || "NO HABITAT"}
-                      {c.batch ? ` · ${c.batch}` : ""}
+                      {c.batch ? ` · ${batchLabel(c.batch)}` : ""}
                     </div>
 
                     {c.characteristics.length ? (
