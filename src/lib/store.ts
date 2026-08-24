@@ -36,7 +36,23 @@ interface LocalDb {
   sightings: { creatureId: string; deviceId: string }[];
 }
 
+/**
+ * The local JSON store writes to the working directory, which is read-only on
+ * serverless hosts like Vercel. Failing here with an explanation beats an
+ * ENOENT from deep inside fs once the site is already live.
+ */
+function assertLocalUsable(): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "No Supabase configuration found. The local JSON store cannot run on a " +
+        "serverless host — its filesystem is read-only. Set NEXT_PUBLIC_SUPABASE_URL " +
+        "and SUPABASE_SERVICE_ROLE_KEY in the environment.",
+    );
+  }
+}
+
 async function readLocal(): Promise<LocalDb> {
+  assertLocalUsable();
   try {
     return JSON.parse(await fs.readFile(DB_FILE, "utf8")) as LocalDb;
   } catch {
@@ -45,6 +61,7 @@ async function readLocal(): Promise<LocalDb> {
 }
 
 async function writeLocal(data: LocalDb): Promise<void> {
+  assertLocalUsable();
   await fs.mkdir(DATA_DIR, { recursive: true });
   const tmp = `${DB_FILE}.${process.pid}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(data, null, 2));
@@ -254,6 +271,7 @@ export async function putMedia(
     const { data } = db().storage.from(BUCKET).getPublicUrl(filename);
     return data.publicUrl;
   }
+  assertLocalUsable();
   await fs.mkdir(MEDIA_DIR, { recursive: true });
   await fs.writeFile(path.join(MEDIA_DIR, filename), body);
   return `/api/media/${filename}`;
