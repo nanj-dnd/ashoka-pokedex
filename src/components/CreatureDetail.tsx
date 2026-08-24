@@ -11,22 +11,39 @@ export function CreatureDetail({
   seen,
   onToggleSeen,
   onClose,
+  position,
+  onPrev,
+  onNext,
 }: {
   creature: PublicCreature;
   seen?: boolean;
   onToggleSeen?: () => void;
   onClose: () => void;
+  /** Where this entry sits in the list you opened it from, for the ‹ n/N › readout. */
+  position?: { index: number; total: number };
+  onPrev?: () => void;
+  onNext?: () => void;
 }) {
   // The grid shows sprites; opening an entry is where you confirm who it is, so
   // lead with the real photo when there is one.
   const [showPhoto, setShowPhoto] = useState(true);
   const ink = (RARITY_STYLE[creature.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
 
+  // Stepping to the next entry should start on its photo, not inherit the
+  // previous card's toggle.
+  useEffect(() => setShowPhoto(true), [creature.id]);
+
+  // Left and right walk the list you opened this from, so you can flick through
+  // the dex without going back to the grid between every entry.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return onClose();
+      if (e.key === "ArrowLeft" && onPrev) { sfx.move(); onPrev(); }
+      if (e.key === "ArrowRight" && onNext) { sfx.move(); onNext(); }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
   const num = creature.dexNumber ? String(creature.dexNumber).padStart(3, "0") : "???";
 
@@ -37,9 +54,38 @@ export function CreatureDetail({
           <h2 style={{ color: ink }}>
             No.{num} {creature.name}
           </h2>
-          <button className="ghost" onClick={onClose}>
-            CLOSE X
-          </button>
+          <div className="row" style={{ flex: "0 0 auto" }}>
+            {onPrev || onNext ? (
+              <>
+                <button
+                  className="ghost"
+                  style={{ flex: "0 0 auto" }}
+                  onClick={() => { sfx.move(); onPrev?.(); }}
+                  disabled={!onPrev}
+                  aria-label="Previous entry"
+                >
+                  ‹
+                </button>
+                {position ? (
+                  <span className="label" style={{ alignSelf: "center", flex: "0 0 auto" }}>
+                    {position.index + 1}/{position.total}
+                  </span>
+                ) : null}
+                <button
+                  className="ghost"
+                  style={{ flex: "0 0 auto" }}
+                  onClick={() => { sfx.move(); onNext?.(); }}
+                  disabled={!onNext}
+                  aria-label="Next entry"
+                >
+                  ›
+                </button>
+              </>
+            ) : null}
+            <button className="ghost" style={{ flex: "0 0 auto" }} onClick={onClose}>
+              CLOSE X
+            </button>
+          </div>
         </div>
 
         <div className="detail">
@@ -124,6 +170,8 @@ export function CreatureDetail({
                 <span className="body-text">{creature.habitat || "UNKNOWN"}</span>
                 <span className="label">BATCH</span>
                 <span className="body-text">{batchLabel(creature.batch) || "UNKNOWN"}</span>
+                <span className="label">CAUGHT BY</span>
+                <span className="body-text">{creature.caughtBy || "UNKNOWN"}</span>
               </div>
             </div>
 

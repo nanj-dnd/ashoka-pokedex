@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { getSession } from "@/lib/session";
+import { viewer } from "@/lib/auth";
+import { storeError } from "@/lib/apiError";
 import { putMedia } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -20,29 +21,33 @@ function decodeDataUrl(dataUrl: unknown): { buf: Buffer; ext: string; type: stri
 
 /**
  * POST /api/upload  { sprite: dataURL, photo?: dataURL }
- * Returns the URLs to store on the creature. Admin only — the public code
- * never gets to write media.
+ *
+ * Returns the URLs to store on the creature. Any signed-in account may upload,
+ * because trainers nominate people too — but an upload on its own is inert.
+ * It only becomes visible once an entry pointing at it clears the queue.
  */
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session || session.role !== "admin") {
-    return NextResponse.json({ error: "ADMINS ONLY" }, { status: 403 });
-  }
-
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "BAD REQUEST" }, { status: 400 });
 
   const sprite = decodeDataUrl(body.sprite);
   if (!sprite) return NextResponse.json({ error: "BAD SPRITE" }, { status: 400 });
 
-  const stem = randomUUID();
-  const spriteUrl = await putMedia(`${stem}-sprite.${sprite.ext}`, sprite.buf, sprite.type);
+  try {
+    const me = await viewer();
+    if (!me) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
 
-  let photoUrl = "";
-  const photo = decodeDataUrl(body.photo);
-  if (photo) {
-    photoUrl = await putMedia(`${stem}-photo.${photo.ext}`, photo.buf, photo.type);
+    const stem = randomUUID();
+    const spriteUrl = await putMedia(`${stem}-sprite.${sprite.ext}`, sprite.buf, sprite.type);
+
+    let photoUrl = "";
+    const photo = decodeDataUrl(body.photo);
+    if (photo) {
+      photoUrl = await putMedia(`${stem}-photo.${photo.ext}`, photo.buf, photo.type);
+    }
+
+    return NextResponse.json({ spriteUrl, photoUrl });
+  } catch (e) {
+    return storeError(e);
   }
-
-  return NextResponse.json({ spriteUrl, photoUrl });
 }

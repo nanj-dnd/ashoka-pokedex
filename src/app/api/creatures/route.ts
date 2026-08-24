@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { getSession } from "@/lib/session";
+import { viewer } from "@/lib/auth";
+import { requiredApprovals } from "@/lib/session";
 import { storeError } from "@/lib/apiError";
 import { activePlayers, listCreatures, saveCreature, seenCounts } from "@/lib/store";
-import { BATCHES, HABITATS, STATS, TYPES } from "@/lib/constants";
-import type { Creature, PublicCreature, Stats } from "@/lib/types";
-import type { CreatureType } from "@/lib/constants";
+import { MAX_OPEN_NOMINATIONS } from "@/lib/constants";
+import { readCreatureFields, str } from "@/lib/creatureInput";
+import type { Creature, MyNomination, PublicCreature } from "@/lib/types";
 import { standingFor } from "@/lib/rarity";
 
 export const runtime = "nodejs";
@@ -17,30 +18,56 @@ function toPublic(
   players: number,
 ): PublicCreature {
   /* eslint-disable @typescript-eslint/no-unused-vars */
-  const { votes, submittedBy, status, ...rest } = c;
+  const { votes, submittedBy, submittedByRole, status, ...rest } = c;
   /* eslint-enable @typescript-eslint/no-unused-vars */
   // Rarity is earned from sightings, never read from the row.
-  return { ...rest, ...standingFor(counts[c.id] ?? 0, players) };
+  return { ...rest, caughtBy: submittedBy, ...standingFor(counts[c.id] ?? 0, players) };
+}
+
+/** A trainer sees the fate of their own nominations, but never who voted. */
+function toMine(c: Creature, needed: number): MyNomination {
+  return {
+    id: c.id,
+    name: c.name,
+    spriteUrl: c.spriteUrl,
+    status: c.status,
+    dexNumber: c.dexNumber,
+    createdAt: c.createdAt,
+    approvals: c.votes.filter((v) => v.vote === "approve").length,
+    rejections: c.votes.filter((v) => v.vote === "reject").length,
+    needed,
+  };
 }
 
 /**
  * GET /api/creatures
  *   ?scope=public   approved entries only (default)
  *   ?scope=pending  admin only — the approval queue, with vote history
+ *   ?scope=all      admin only — every entry, whatever its status
+ *   ?scope=mine     your own submissions and where they got to
  */
 export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
-
   const scope = new URL(req.url).searchParams.get("scope") ?? "public";
 
   try {
-    if (scope === "pending") {
-      if (session.role !== "admin") {
+    const me = await viewer();
+    if (!me) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
+
+    if (scope === "pending" || scope === "all") {
+      if (me.role !== "admin") {
         return NextResponse.json({ error: "ADMINS ONLY" }, { status: 403 });
       }
-      const pending = await listCreatures("pending");
-      return NextResponse.json({ creatures: pending });
+      const rows = await listCreatures(scope === "pending" ? "pending" : undefined);
+      return NextResponse.json({ creatures: rows });
+    }
+
+    if (scope === "mine") {
+      const all = await listCreatures();
+      const needed = requiredApprovals();
+      const mine = all
+        .filter((c) => c.submittedBy === me.username)
+        .map((c) => toMine(c, needed));
+      return NextResponse.json({ nominations: mine, openLimit: MAX_OPEN_NOMINATIONS });
     }
 
     const [approved, counts, players] = await Promise.all([
@@ -58,74 +85,58 @@ export async function GET(req: Request) {
   }
 }
 
-function clampStat(v: unknown): number {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 50;
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function str(v: unknown, max: number): string {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
-}
-
-/** POST /api/creatures — admin submits a new entry into the approval queue. */
+/**
+ * POST /api/creatures — put a new entry into the approval queue.
+ *
+ * Admins capture; trainers nominate. Both land as `pending` and need the same
+ * quorum of admins to get in, so a nomination is not a shortcut into the dex.
+ * Trainers are capped at MAX_OPEN_NOMINATIONS open at once — otherwise one
+ * bored person can bury the queue.
+ */
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session || session.role !== "admin") {
-    return NextResponse.json({ error: "ADMINS ONLY" }, { status: 403 });
-  }
-
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "BAD REQUEST" }, { status: 400 });
 
-  const name = str(body.name, 40);
-  if (!name) return NextResponse.json({ error: "NAME REQUIRED" }, { status: 400 });
-
-  const spriteUrl = str(body.spriteUrl, 500);
-  if (!spriteUrl) return NextResponse.json({ error: "PHOTO REQUIRED" }, { status: 400 });
-
-  const types = Array.isArray(body.types)
-    ? (body.types.filter((t) => (TYPES as readonly string[]).includes(String(t))) as CreatureType[]).slice(0, 3)
-    : [];
-
-  const characteristics = Array.isArray(body.characteristics)
-    ? body.characteristics.map((c) => String(c).trim().slice(0, 40)).filter(Boolean).slice(0, 8)
-    : [];
-
-  const rawStats = (body.stats ?? {}) as Record<string, unknown>;
-  const stats = Object.fromEntries(
-    STATS.map(({ key }) => [key, clampStat(rawStats[key])]),
-  ) as Stats;
-
-  const creature: Creature = {
-    id: randomUUID(),
-    dexNumber: null,
-    name,
-    title: str(body.title, 60),
-    types,
-    habitat: (HABITATS as readonly string[]).includes(str(body.habitat, 40))
-      ? str(body.habitat, 40)
-      : "",
-    batch: (BATCHES as readonly string[]).includes(str(body.batch, 20))
-      ? str(body.batch, 20)
-      : "",
-    characteristics,
-    entry: str(body.entry, 400),
-    quote: str(body.quote, 160),
-    stats,
-    spriteUrl,
-    photoUrl: str(body.photoUrl, 500),
-    status: "pending",
-    submittedBy: session.username,
-    votes: [],
-    createdAt: new Date().toISOString(),
-    approvedAt: null,
-  };
-
   try {
+    const me = await viewer();
+    if (!me) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
+
+    const fields = readCreatureFields(body);
+    if (!fields.name) return NextResponse.json({ error: "NAME REQUIRED" }, { status: 400 });
+
+    const spriteUrl = str(body.spriteUrl, 500);
+    if (!spriteUrl) return NextResponse.json({ error: "PHOTO REQUIRED" }, { status: 400 });
+
+    if (me.role !== "admin") {
+      const open = (await listCreatures("pending")).filter(
+        (c) => c.submittedBy === me.username,
+      ).length;
+      if (open >= MAX_OPEN_NOMINATIONS) {
+        return NextResponse.json(
+          { error: `YOU ALREADY HAVE ${MAX_OPEN_NOMINATIONS} NOMINATIONS WAITING` },
+          { status: 429 },
+        );
+      }
+    }
+
+    const creature: Creature = {
+      id: randomUUID(),
+      dexNumber: null,
+      ...fields,
+      spriteUrl,
+      photoUrl: str(body.photoUrl, 500),
+      status: "pending",
+      submittedBy: me.username,
+      submittedByRole: me.role,
+      votes: [],
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+      updatedAt: null,
+    };
+
     await saveCreature(creature);
+    return NextResponse.json({ creature }, { status: 201 });
   } catch (e) {
     return storeError(e);
   }
-  return NextResponse.json({ creature }, { status: 201 });
 }

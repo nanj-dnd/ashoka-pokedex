@@ -1,21 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BATCHES, HABITATS, STATS, STAT_HINT, TYPES, TYPE_HINT, batchLabel } from "@/lib/constants";
-import type { CreatureType } from "@/lib/constants";
 import { processCapture, processFile, type CapturedImages } from "@/lib/pixelate";
 import { api, sfx } from "@/lib/client";
-import { TypeChip } from "./Bits";
-import type { Stats } from "@/lib/types";
-
-const BLANK_STATS: Stats = {
-  presence: 50, charm: 50, volume: 50, volatility: 50, discipline: 50, burnout: 50,
-};
+import { BLANK_DRAFT, EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
 
 /** Form accent. Rarity is earned later, so there's no rarity colour to borrow. */
 const INK = "#35d6e6";
 
-export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
+/**
+ * The capture flow. Admins use it to add a catch straight into the queue;
+ * trainers use the identical form to nominate someone. Both land as `pending`
+ * and face the same admin quorum — the only difference is the wording and the
+ * cap on how many a trainer may have in flight.
+ */
+export function Capture({
+  onSubmitted,
+  mode = "capture",
+  atLimit = false,
+  limitNote = "",
+}: {
+  onSubmitted: () => void;
+  mode?: "capture" | "nominate";
+  atLimit?: boolean;
+  limitNote?: string;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -25,16 +34,8 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
   const [shot, setShot] = useState<CapturedImages | null>(null);
   const [flash, setFlash] = useState(false);
 
-  const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [types, setTypes] = useState<CreatureType[]>([]);
-  const [habitat, setHabitat] = useState<string>(HABITATS[0]);
-  const [batch, setBatch] = useState<string>(BATCHES[0]);
-  const [traits, setTraits] = useState<string[]>([]);
+  const [draft, setDraft] = useState<EntryDraft>(BLANK_DRAFT);
   const [traitDraft, setTraitDraft] = useState("");
-  const [entry, setEntry] = useState("");
-  const [quote, setQuote] = useState("");
-  const [stats, setStats] = useState<Stats>(BLANK_STATS);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -94,47 +95,17 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
 
   /* ------------------------------- form -------------------------------- */
 
-  function toggleType(t: CreatureType) {
-    sfx.move();
-    setTypes((cur) =>
-      cur.includes(t) ? cur.filter((x) => x !== t) : cur.length >= 3 ? cur : [...cur, t],
-    );
-  }
-
-  function addTrait() {
-    const v = traitDraft.trim();
-    if (!v || traits.length >= 8 || traits.includes(v)) return;
-    setTraits([...traits, v]);
-    setTraitDraft("");
-    sfx.select();
-  }
-
-  function rollStats() {
-    sfx.open();
-    setStats(
-      Object.fromEntries(STATS.map(({ key }) => [key, 20 + Math.floor(Math.random() * 76)])) as Stats,
-    );
-  }
-
   function reset() {
     setShot(null);
-    setName("");
-    setTitle("");
-    setTypes([]);
-    setHabitat(HABITATS[0]);
-    setBatch(BATCHES[0]);
-    setTraits([]);
+    setDraft(BLANK_DRAFT);
     setTraitDraft("");
-    setEntry("");
-    setQuote("");
-    setStats(BLANK_STATS);
     setError("");
   }
 
   async function submit() {
     setError("");
     if (!shot) return setError("TAKE A PHOTO FIRST");
-    if (!name.trim()) return setError("NAME REQUIRED");
+    if (!draft.name.trim()) return setError("NAME REQUIRED");
 
     setBusy(true);
     try {
@@ -145,10 +116,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
 
       await api("/api/creatures", {
         method: "POST",
-        body: JSON.stringify({
-          name, title, types, habitat, batch,
-          characteristics: traits, entry, quote, stats, spriteUrl, photoUrl,
-        }),
+        body: JSON.stringify({ ...draftToBody(draft), spriteUrl, photoUrl }),
       });
 
       sfx.good();
@@ -160,6 +128,17 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  const nominating = mode === "nominate";
+
+  if (atLimit) {
+    return (
+      <div className="empty stack">
+        <div className="label amber">NOMINATION LIMIT REACHED</div>
+        <div className="body-text dim">{limitNote}</div>
+      </div>
+    );
   }
 
   return (
@@ -209,131 +188,32 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
         </div>
       </div>
 
-      {/* ------------------------------ identity --------------------------- */}
-      <div className="plate stack">
-        <div className="label">STEP 2 — IDENTIFY</div>
-
-        <div className="row">
-          <div>
-            <div className="label" style={{ marginBottom: 6 }}>NAME *</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="WHO IS THIS" maxLength={40} />
-          </div>
-          <div>
-            <div className="label" style={{ marginBottom: 6 }}>TITLE</div>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The 3AM Dhaba Prophet" maxLength={60} />
-          </div>
-        </div>
-
-        <div className="row">
-          <div>
-            <div className="label" style={{ marginBottom: 6 }}>HABITAT</div>
-            <select value={habitat} onChange={(e) => setHabitat(e.target.value)}>
-              {HABITATS.map((h) => <option key={h} value={h}>{h}</option>)}
-            </select>
-          </div>
-          <div>
-            <div className="label" style={{ marginBottom: 6 }}>BATCH</div>
-            <select value={batch} onChange={(e) => setBatch(e.target.value)}>
-              {BATCHES.map((b) => <option key={b} value={b}>{batchLabel(b)}</option>)}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* -------------------------------- types ---------------------------- */}
-      <div className="plate stack">
-        <div className="label">STEP 3 — TYPING — PICK UP TO 3 ({types.length}/3)</div>
-        <div className="chip-row">
-          {TYPES.map((t) => (
-            <span
-              key={t}
-              onClick={() => toggleType(t)}
-              title={TYPE_HINT[t]}
-              style={{ cursor: "pointer", opacity: types.includes(t) ? 1 : 0.42 }}
-            >
-              <TypeChip type={t} outline={!types.includes(t)} />
-            </span>
-          ))}
-        </div>
-        {types.length ? (
-          <div className="body-text dim">{TYPE_HINT[types[types.length - 1]]}</div>
-        ) : (
-          <div className="body-text dim">Hover a type to see what it means.</div>
-        )}
-      </div>
-
-      {/* --------------------------- characteristics ----------------------- */}
-      <div className="plate stack">
-        <div className="label">STEP 4 — CHARACTERISTICS ({traits.length}/8)</div>
-        <div className="row">
-          <input
-            value={traitDraft}
-            onChange={(e) => setTraitDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTrait(); } }}
-            placeholder="Always has an iced coffee"
-            maxLength={40}
-          />
-          <button style={{ flex: "0 0 auto" }} onClick={addTrait} disabled={traits.length >= 8}>+ ADD</button>
-        </div>
-        {traits.length ? (
-          <div className="chip-row">
-            {traits.map((t) => (
-              <span
-                key={t}
-                onClick={() => { sfx.move(); setTraits(traits.filter((x) => x !== t)); }}
-                style={{ cursor: "pointer" }}
-                title="Click to remove"
-              >
-                <span className="chip outline" style={{ ["--chip-color" as string]: INK }}>{t} ×</span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        <div>
-          <div className="label" style={{ marginBottom: 6 }}>DEX ENTRY</div>
-          <textarea
-            value={entry}
-            onChange={(e) => setEntry(e.target.value)}
-            placeholder="Materialises at the dhaba after midnight. Emits a low hum when approached before noon."
-            maxLength={400}
-          />
-        </div>
-
-        <div>
-          <div className="label" style={{ marginBottom: 6 }}>SIGNATURE QUOTE</div>
-          <input value={quote} onChange={(e) => setQuote(e.target.value)} placeholder="bro I'm so cooked" maxLength={160} />
-        </div>
-      </div>
-
-      {/* -------------------------------- stats ---------------------------- */}
-      <div className="plate stack">
-        <div className="toolbar" style={{ justifyContent: "space-between", marginBottom: 0 }}>
-          <span className="label">STEP 5 — BASE STATS</span>
-          <button style={{ fontSize: 8 }} onClick={rollStats}>⚄ ROLL</button>
-        </div>
-        {STATS.map(({ key, label }) => (
-          <div className="stat-row" key={key} title={STAT_HINT[key]}>
-            <span className="stat-name">{label}</span>
-            <input
-              className="slider"
-              type="range"
-              min={0}
-              max={100}
-              value={stats[key]}
-              onChange={(e) => setStats({ ...stats, [key]: Number(e.target.value) })}
-              style={{ ["--bar-c" as string]: INK }}
-            />
-            <span className="stat-val">{stats[key]}</span>
-          </div>
-        ))}
-      </div>
+      <EntryFields
+        draft={draft}
+        onChange={setDraft}
+        ink={INK}
+        step={(n) => `STEP ${n} — `}
+        traitDraft={traitDraft}
+        onTraitDraft={setTraitDraft}
+      />
 
       <div className="plate">
-        <div className="label" style={{ marginBottom: 6 }}>RARITY IS EARNED</div>
+        <div className="label" style={{ marginBottom: 6 }}>
+          {nominating ? "WHAT HAPPENS NEXT" : "RARITY IS EARNED"}
+        </div>
         <div className="body-text dim">
-          Everyone enters the dex as UNCOMMON. They climb as more of campus reports
-          seeing them — you don&apos;t get to set it.
+          {nominating ? (
+            <>
+              Nominations go into the same queue as an admin&apos;s catch and need the
+              same approvals to get in. You&apos;ll see how yours is doing under MY
+              NOMINATIONS. Rarity is earned afterwards, from sightings — nobody sets it.
+            </>
+          ) : (
+            <>
+              Everyone enters the dex as UNCOMMON. They climb as more of campus reports
+              seeing them — you don&apos;t get to set it.
+            </>
+          )}
         </div>
       </div>
 
@@ -341,9 +221,11 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
 
       <div className="row">
         <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? "SENDING…" : "SUBMIT FOR APPROVAL"}
+          {busy ? "SENDING…" : nominating ? "SUBMIT NOMINATION" : "SUBMIT FOR APPROVAL"}
         </button>
-        <button className="ghost" style={{ flex: "0 0 auto" }} onClick={reset} disabled={busy}>CLEAR</button>
+        <button className="ghost" style={{ flex: "0 0 auto" }} onClick={reset} disabled={busy}>
+          CLEAR
+        </button>
       </div>
     </div>
   );

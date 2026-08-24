@@ -1,29 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BASE_RARITY, RARITY_STYLE, batchLabel } from "@/lib/constants";
 import { api, sfx } from "@/lib/client";
 import { Shell } from "./Shell";
 import { Pips, RarityBadge, SfxToggle, TypeChip } from "./Bits";
 import { Capture } from "./Capture";
-import type { Creature } from "@/lib/types";
+import { AdminArchive } from "./AdminArchive";
+import { AdminTrainers } from "./AdminTrainers";
+import { EditEntry } from "./EditEntry";
+import type { Creature, CreatureStatus } from "@/lib/types";
 
-type Tab = "capture" | "queue";
+type Tab = "capture" | "queue" | "archive" | "trainers";
 
-export function AdminView({ username, needed }: { username: string; needed: number }) {
+export function AdminView({
+  accountId,
+  username,
+  needed,
+}: {
+  accountId: string;
+  username: string;
+  needed: number;
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("capture");
-  const [queue, setQueue] = useState<Creature[]>([]);
+  const [all, setAll] = useState<Creature[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Creature | null>(null);
 
+  // One fetch covers both the queue and the archive.
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api<{ creatures: Creature[] }>("/api/creatures?scope=pending");
-      setQueue(res.creatures);
+      const res = await api<{ creatures: Creature[] }>("/api/creatures?scope=all");
+      setAll(res.creatures);
       setError("");
     } catch (e) {
       setError(String((e as Error).message).toUpperCase());
@@ -34,22 +47,52 @@ export function AdminView({ username, needed }: { username: string; needed: numb
 
   useEffect(() => { void load(); }, [load]);
 
-  async function vote(c: Creature, v: "approve" | "reject") {
+  const queue = useMemo(() => all.filter((c) => c.status === "pending"), [all]);
+
+  async function vote(c: Creature, v: "approve" | "reject", force = false) {
+    if (force && !confirm(
+      `${v === "approve" ? "Put" : "Reject"} "${c.name}" ${v === "approve" ? "into the dex " : ""}on your say-so alone, without waiting for ${needed} admins?`,
+    )) {
+      return;
+    }
     try {
-      const res = await api<{ resolved?: string }>(`/api/creatures/${c.id}/vote`, {
-        method: "POST",
-        body: JSON.stringify({ vote: v }),
-      });
+      const res = await api<{ resolved?: string; forced?: boolean }>(
+        `/api/creatures/${c.id}/vote`,
+        { method: "POST", body: JSON.stringify({ vote: v, force }) },
+      );
       if (res.resolved === "approved") {
         sfx.good();
-        setNote(`${c.name.toUpperCase()} ADDED TO THE PUBLIC DEX`);
+        setNote(`${c.name.toUpperCase()} ADDED TO THE PUBLIC DEX${res.forced ? " (OVERRIDE)" : ""}`);
       } else if (res.resolved === "rejected") {
         sfx.bad();
-        setNote(`${c.name.toUpperCase()} REJECTED`);
+        setNote(`${c.name.toUpperCase()} REJECTED${res.forced ? " (OVERRIDE)" : ""}`);
       } else {
         sfx.select();
         setNote(`VOTE RECORDED — ${c.name.toUpperCase()} STILL NEEDS MORE`);
       }
+      setError("");
+      await load();
+    } catch (e) {
+      sfx.bad();
+      setError(String((e as Error).message).toUpperCase());
+    }
+  }
+
+  async function setStatus(c: Creature, status: CreatureStatus) {
+    const ask: Record<CreatureStatus, string> = {
+      approved: `Put "${c.name}" into the public dex now?`,
+      pending: `Pull "${c.name}" back into the approval queue? Existing votes are cleared; its dex number is held.`,
+      rejected: `Take "${c.name}" off the wall?`,
+    };
+    if (!confirm(ask[status])) return;
+    try {
+      await api(`/api/creatures/${c.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      sfx.select();
+      setNote(`${c.name.toUpperCase()} — ${status.toUpperCase()}`);
+      setError("");
       await load();
     } catch (e) {
       sfx.bad();
@@ -60,11 +103,13 @@ export function AdminView({ username, needed }: { username: string; needed: numb
   async function remove(c: Creature) {
     if (!confirm(`Delete "${c.name}" permanently? This cannot be undone.`)) return;
     try {
-      await api(`/api/creatures/${c.id}/vote`, { method: "DELETE" });
+      await api(`/api/creatures/${c.id}`, { method: "DELETE" });
       sfx.move();
       setNote(`${c.name.toUpperCase()} DELETED`);
+      setError("");
       await load();
     } catch (e) {
+      sfx.bad();
       setError(String((e as Error).message).toUpperCase());
     }
   }
@@ -74,6 +119,13 @@ export function AdminView({ username, needed }: { username: string; needed: numb
     router.replace("/");
     router.refresh();
   }
+
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "capture", label: "◉ NEW CATCH" },
+    { key: "queue", label: `APPROVAL QUEUE${queue.length ? ` (${queue.length})` : ""}` },
+    { key: "archive", label: `ARCHIVE (${all.length})` },
+    { key: "trainers", label: "TRAINERS" },
+  ];
 
   return (
     <Shell
@@ -92,12 +144,15 @@ export function AdminView({ username, needed }: { username: string; needed: numb
       }
     >
       <div className="tabs">
-        <span className={`tab${tab === "capture" ? " on" : ""}`} onClick={() => { sfx.move(); setTab("capture"); }}>
-          ◉ NEW CATCH
-        </span>
-        <span className={`tab${tab === "queue" ? " on" : ""}`} onClick={() => { sfx.move(); setTab("queue"); void load(); }}>
-          APPROVAL QUEUE {queue.length ? `(${queue.length})` : ""}
-        </span>
+        {tabs.map((t) => (
+          <span
+            key={t.key}
+            className={`tab${tab === t.key ? " on" : ""}`}
+            onClick={() => { sfx.move(); setTab(t.key); if (t.key !== "capture") void load(); }}
+          >
+            {t.label}
+          </span>
+        ))}
       </div>
 
       {note ? <div className="ok" style={{ marginBottom: 12 }}>{note}</div> : null}
@@ -110,8 +165,17 @@ export function AdminView({ username, needed }: { username: string; needed: numb
             void load();
           }}
         />
+      ) : tab === "trainers" ? (
+        <AdminTrainers accountId={accountId} onNote={setNote} onError={setError} />
       ) : loading ? (
-        <div className="empty"><span className="label blink">LOADING QUEUE</span></div>
+        <div className="empty"><span className="label blink">LOADING</span></div>
+      ) : tab === "archive" ? (
+        <AdminArchive
+          creatures={all}
+          onEdit={setEditing}
+          onStatus={setStatus}
+          onDelete={remove}
+        />
       ) : !queue.length ? (
         <div className="empty stack">
           <div className="label">QUEUE CLEAR</div>
@@ -141,7 +205,12 @@ export function AdminView({ username, needed }: { username: string; needed: numb
                     </div>
 
                     <div className="label">
-                      BY {c.submittedBy || "UNKNOWN"} · {c.habitat || "NO HABITAT"}
+                      BY {c.submittedBy || "UNKNOWN"}
+                      {c.submittedByRole === "public" ? (
+                        <span className="tag trainer">TRAINER NOMINATION</span>
+                      ) : null}
+                      {" · "}
+                      {c.habitat || "NO HABITAT"}
                       {c.batch ? ` · ${batchLabel(c.batch)}` : ""}
                     </div>
 
@@ -164,10 +233,15 @@ export function AdminView({ username, needed }: { username: string; needed: numb
                     {rejections ? ` · ${rejections} AGAINST` : ""}
                   </span>
 
+                  {own ? (
+                    <span className="label amber">YOUR CATCH — AWAITING OTHERS</span>
+                  ) : null}
+
                   <div style={{ marginLeft: "auto" }} className="row">
-                    {own ? (
-                      <span className="label amber">YOUR CATCH — AWAITING OTHERS</span>
-                    ) : (
+                    <button style={{ fontSize: 8 }} onClick={() => { sfx.select(); setEditing(c); }}>
+                      EDIT
+                    </button>
+                    {own ? null : (
                       <>
                         <button
                           className="go"
@@ -185,6 +259,13 @@ export function AdminView({ username, needed }: { username: string; needed: numb
                         >
                           {mine?.vote === "reject" ? "✗ REJECTED" : "REJECT"}
                         </button>
+                        <button
+                          style={{ fontSize: 8, whiteSpace: "nowrap" }}
+                          title={`Put this in without waiting for ${needed} admins`}
+                          onClick={() => vote(c, "approve", true)}
+                        >
+                          FORCE IN
+                        </button>
                       </>
                     )}
                     <button className="ghost" style={{ fontSize: 8 }} onClick={() => remove(c)}>
@@ -195,7 +276,7 @@ export function AdminView({ username, needed }: { username: string; needed: numb
 
                 {c.votes.length ? (
                   <div className="label" style={{ marginTop: 10 }}>
-                    VOTES — {c.votes.map((v) => `${v.username}:${v.vote === "approve" ? "YES" : "NO"}`).join("  ")}
+                    VOTES — {c.votes.map((v) => `${v.username}:${v.vote === "approve" ? "YES" : "NO"}${v.forced ? "(FORCED)" : ""}`).join("  ")}
                   </div>
                 ) : null}
               </div>
@@ -203,6 +284,18 @@ export function AdminView({ username, needed }: { username: string; needed: numb
           })}
         </div>
       )}
+
+      {editing ? (
+        <EditEntry
+          creature={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setEditing(null);
+            setNote(`${updated.name.toUpperCase()} UPDATED`);
+            void load();
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

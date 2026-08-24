@@ -97,6 +97,7 @@ h3 { font-size: 10px; margin: 0; line-height: 1.6; }
 }
 
 .dim { color: var(--ink-dim); }
+.danger { color: var(--danger); }
 .amber { color: var(--amber); }
 .cyan { color: var(--cyan); }
 .lime { color: var(--lime); }
@@ -482,7 +483,7 @@ select { appearance: none; cursor: pointer; }
   padding-left: 10px;
 }
 
-.kv { display: grid; grid-template-columns: 78px 1fr; gap: 6px 10px; font-size: 18px; }
+.kv { display: grid; grid-template-columns: 92px 1fr; gap: 6px 10px; font-size: 18px; }
 
 /* --------------------------------------------------------------------------
    Progress
@@ -615,6 +616,75 @@ select { appearance: none; cursor: pointer; }
   background: var(--screen);
   padding: 18px;
   box-shadow: 0 0 0 4px #dfe7ee, 0 0 0 8px var(--edge);
+}
+
+/* --------------------------------------------------------------------------
+   Leaderboards — hall of fame, trainer standings, a trainer's own nominations
+   -------------------------------------------------------------------------- */
+
+.board { display: flex; flex-direction: column; gap: 8px; }
+
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--screen);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+.board-row:hover { background: #131c27; }
+/* Your own row on the board, so you can find yourself at a glance. */
+.board-row.me { box-shadow: inset 0 0 0 2px var(--amber); }
+
+.rank {
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  width: 26px;
+  flex: 0 0 26px;
+  text-align: center;
+  color: var(--ink-dim);
+}
+
+.rank.top { color: var(--amber); }
+
+.board-sprite {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: cover;
+  background: #070b10;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+}
+
+.board-name {
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Little inline pixel badges: ADMIN, YOU, TRAINER NOMINATION */
+.tag {
+  display: inline-block;
+  font-family: var(--font-pixel), monospace;
+  font-size: 7px;
+  padding: 3px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  color: #06090d;
+}
+
+.tag.admin { background: var(--cyan); }
+.tag.you { background: var(--amber); }
+.tag.trainer { background: var(--lime); }
+
+/* Keyboard focus has to be obvious — the grid is walkable with the arrow keys. */
+.slot:focus-visible,
+.board-row:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 /* --------------------------------------------------------------------------

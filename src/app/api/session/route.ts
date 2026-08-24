@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { SESSION_COOKIE, getSession, newSession, roleForCode } from "@/lib/session";
+import { SESSION_COOKIE, newSession, roleForCode } from "@/lib/session";
+import { viewer } from "@/lib/auth";
 import { createAccount, findAccountByUsername } from "@/lib/store";
 import {
   hashPassword,
@@ -28,13 +29,17 @@ function withSession(account: Account) {
   return res;
 }
 
-/** GET — who am I? */
+/** GET — who am I? Answered from the account row, so a role change shows up. */
 export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ account: null });
-  return NextResponse.json({
-    account: { id: session.accountId, username: session.username, role: session.role },
-  });
+  try {
+    const me = await viewer();
+    if (!me) return NextResponse.json({ account: null });
+    return NextResponse.json({
+      account: { id: me.accountId, username: me.username, role: me.role },
+    });
+  } catch (e) {
+    return storeError(e);
+  }
 }
 
 /**

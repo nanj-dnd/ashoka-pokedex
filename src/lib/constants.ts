@@ -49,6 +49,12 @@ export const RARITY_FLAVOUR: Record<Rarity, string> = {
   MYTHIC: "Functionally a campus landmark.",
 };
 
+/**
+ * How many nominations one trainer may have sitting in the queue at once.
+ * Admins are exempt — they are the ones clearing the queue.
+ */
+export const MAX_OPEN_NOMINATIONS = 3;
+
 /* -------------------------------------------------------------------------- */
 /*  Types — personality, not geography                                         */
 /* -------------------------------------------------------------------------- */

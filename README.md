@@ -14,8 +14,8 @@ it is the invitation that lets you *create* an account, and it decides what kind
 
 | Env var | Creates | Can do |
 |---------|---------|--------|
-| `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen |
-| `ADMIN_CODE` | Admin | Everything above, plus capture new entries and vote on the queue |
+| `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen, nominate people into the queue |
+| `ADMIN_CODE` | Admin | Everything above, plus capture entries, vote on the queue, edit anything, and manage accounts |
 
 After sign-up you only ever need your username and password; the code is never
 asked for again. Usernames are case-insensitive. Passwords are hashed with
@@ -30,17 +30,47 @@ Admins pick a **handle** when they enter (e.g. `ANSHUL`). It signs their votes.
 
 **The approval loop**
 
-1. An admin photographs someone and fills in their entry → status `pending`.
+1. Someone photographs a person and fills in their entry → status `pending`.
+   Admins do this from the admin terminal; trainers do it from the **NOMINATE**
+   tab in the dex. Both land in the same queue and face the same bar.
 2. Every *other* admin sees it in the approval queue. You cannot vote on your own catch.
 3. Once **2 different admins** approve, it's assigned the next dex number and
    appears in the public dex. 2 rejections kill it instead.
 
 Change the threshold with `REQUIRED_APPROVALS` in the environment.
 
+Trainers may have **3 nominations open at a time** (`MAX_OPEN_NOMINATIONS` in
+`src/lib/constants.ts`) so one bored person can't bury the queue; the cap frees
+up as each one is resolved. The **MY NOMINATIONS** list shows a trainer how far
+each of theirs got — the vote count, never who cast which vote.
+
+**What an admin can do**
+
+- **Vote** on anyone else's submission, as before.
+- **FORCE IN** — resolve a pending entry on one admin's say-so, without waiting
+  for the quorum. It skips the count, not the conflict of interest: you still
+  cannot force in your own catch, because that rule is the only thing keeping
+  the queue honest. Forced votes are recorded as `forced` in the vote history.
+- **Edit any entry**, live or pending, including replacing the photo. Entries
+  are about real people; getting one wrong should be a ten-second fix.
+- **Move an entry between states** from the ARCHIVE tab: pull a live entry back
+  into the queue (votes cleared, dex number held in reserve so re-approval
+  restores the same number), put a pending one straight in, or take one down.
+- **Manage accounts** from the TRAINERS tab: promote a trainer to admin, demote
+  an admin, or delete an account (which takes its sightings with it, and so
+  moves rarity). Never on your own account — locking yourself out of your own
+  terminal is the one mistake nobody else can undo for you.
+
+Role changes take effect **immediately**. The session cookie says which account
+is asking, and every request looks up that account's current role in the
+database, so a demoted admin cannot keep using the terminal on the strength of
+a cookie issued before the demotion, and a deleted account is signed out on its
+next click.
+
 **Rarity is earned, never assigned.** Admins do not pick a rarity. Everyone enters
 the dex as `UNCOMMON` and climbs as more of the campus reports seeing them,
-measured as a share of the *active* player base (distinct devices that have
-marked at least one sighting). So rarity here means notoriety, not scarcity.
+measured as a share of everyone with an account. So rarity here means notoriety,
+not scarcity.
 
 | Tier | Share of players | Min sightings |
 |------|------------------|---------------|
@@ -57,6 +87,18 @@ in `src/lib/constants.ts` (`RARITY_LADDER`) and the maths in `src/lib/rarity.ts`
 
 **Seen tracking** belongs to your account, so your progress follows you between
 your phone and your laptop.
+
+**The hall of fame** ranks trainers by how much of the dex they have filled in,
+with contributions breaking ties, and ranks entries by how much of campus has
+actually seen them. It is aggregates only: the board says how many entries a
+trainer has ticked off, never which ones. Opening a trainer shows their rank,
+completion and the catches of theirs that made it in — entries also carry a
+visible **CAUGHT BY** credit on the detail card.
+
+**Browsing.** Search covers names, titles, habitats, traits and the submitter.
+Filter by rarity, type, habitat and batch; sort by dex number, most seen, newest
+or A→Z. The grid is walkable with the arrow keys (Enter opens), and once an
+entry is open, ← and → step through the rest of the filtered list.
 
 **Photos** are crushed to a 96×96 colour-quantised sprite in the browser before
 upload. The sprite is what the dex shows; the full photo is kept alongside it and
@@ -89,9 +131,12 @@ stops being served there — see the warning at the end of this section.
 
 **1. Supabase**
 
-- Create a project, then run [`supabase/schema.sql`](supabase/schema.sql) and
-  [`supabase/002_accounts.sql`](supabase/002_accounts.sql) in the SQL editor. It creates both tables, locks them with deny-by-default RLS, and
-  creates the public `dex-media` storage bucket.
+- Create a project, then run [`supabase/schema.sql`](supabase/schema.sql),
+  [`supabase/002_accounts.sql`](supabase/002_accounts.sql) and
+  [`supabase/003_nominations_and_edits.sql`](supabase/003_nominations_and_edits.sql)
+  in the SQL editor, in that order. They create both tables, lock them with
+  deny-by-default RLS, and create the public `dex-media` storage bucket.
+  All three are safe to re-run — an existing deployment only needs 003.
 - Copy the project URL and the **secret** key from Settings → API Keys →
   Secret keys (`sb_secret_…`; on older projects, the `service_role` JWT).
   Not the publishable/anon key — the app never uses it, and the deny-by-default
@@ -153,8 +198,12 @@ What the codes do enforce properly:
 - They're checked server-side only and never ship in the client bundle.
 - Sessions are HMAC-signed httpOnly cookies, so a trainer can't promote
   themselves to admin by editing storage.
-- Every write route re-checks the role server-side.
+- Every route re-checks the role server-side, against the account row rather
+  than the cookie, so roles can be changed and revoked while people are signed in.
 - With RLS deny-by-default, the database is unreachable except through the app.
+
+Nominations widen who can *submit*, not who can *publish*: a trainer's entry is
+invisible until admins approve it, exactly like an admin's own catch.
 
 Because it's a dex of real people, `DELETE` on any entry is always available to
 admins — if someone wants off the wall, take them off.
@@ -167,20 +216,26 @@ admins — if someone wants off the wall, take them off.
 src/
   app/
     page.tsx              access-code gate
-    dex/                  public dex
-    admin/                capture + approval queue
+    dex/                  public dex, hall of fame, trainer nominations
+    admin/                capture, approval queue, archive, account management
     api/
-      session/            redeem code -> signed cookie
-      creatures/          list / create / [id]/vote
-      sightings/          per-device seen marks
+      session/            sign up / sign in -> signed cookie
+      creatures/          list / create, [id] edit + delete, [id]/vote
+      accounts/[id]/      promote, demote, delete an account
+      leaderboard/        trainer standings for the hall of fame
+      sightings/          per-account seen marks
       upload/             sprite + photo -> storage
       media/[file]/       serves images on the local backend
-  components/             Shell, Gate, DexView, AdminView, Capture, CreatureDetail
+  components/             Shell, Gate, DexView, HallOfFame, Nominate,
+                          AdminView, AdminArchive, AdminTrainers,
+                          Capture, EntryFields, EditEntry, CreatureDetail
   lib/
     constants.ts          rarities, types, habitats, stats — edit to re-flavour
     store.ts              Supabase / local-JSON storage adapter
+    auth.ts               who is asking, read from the account row every request
     session.ts            code check + cookie signing
-    pixelate.ts           photo -> 96x96 quantised sprite
+    creatureInput.ts      whitelisting for everything a client can set
+    pixelate.ts           photo -> quantised sprite
 supabase/schema.sql
 ```
 

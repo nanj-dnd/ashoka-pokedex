@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BASE_RARITY } from "./constants";
-import type { Account, Creature, CreatureStatus } from "./types";
+import type { Account, Creature, CreatureStatus, Role } from "./types";
 
 /* -------------------------------------------------------------------------- */
 /*  Backend selection                                                          */
@@ -93,9 +93,12 @@ function toCreature(row: any): Creature {
     photoUrl: row.photo_url ?? "",
     status: row.status,
     submittedBy: row.submitted_by ?? "",
+    // Rows captured before trainer nominations existed were all admin catches.
+    submittedByRole: row.submitted_by_role === "public" ? "public" : "admin",
     votes: row.votes ?? [],
     createdAt: row.created_at,
     approvedAt: row.approved_at,
+    updatedAt: row.updated_at ?? null,
   };
 }
 
@@ -119,9 +122,11 @@ function toRow(c: Creature): Record<string, unknown> {
     photo_url: c.photoUrl,
     status: c.status,
     submitted_by: c.submittedBy,
+    submitted_by_role: c.submittedByRole,
     votes: c.votes,
     created_at: c.createdAt,
     approved_at: c.approvedAt,
+    updated_at: c.updatedAt,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -259,6 +264,24 @@ export async function seenCounts(): Promise<Record<string, number>> {
   return out;
 }
 
+/** accountId -> how many entries that trainer has marked seen. */
+export async function sightingCountsByAccount(): Promise<Record<string, number>> {
+  if (usingSupabase) {
+    const { data, error } = await db().from("sightings").select("account_id");
+    if (error) throw new Error(`sightingCountsByAccount: ${error.message}`);
+    const out: Record<string, number> = {};
+    for (const r of data ?? []) {
+      const id = r.account_id as string;
+      out[id] = (out[id] ?? 0) + 1;
+    }
+    return out;
+  }
+  const local = await readLocal();
+  const out: Record<string, number> = {};
+  for (const s of local.sightings) out[s.accountId] = (out[s.accountId] ?? 0) + 1;
+  return out;
+}
+
 /**
  * Everyone with an account — the denominator for earned rarity. Now that
  * accounts exist this is a real headcount rather than a guess from activity.
@@ -339,6 +362,45 @@ export async function createAccount(account: Account): Promise<Account> {
   local.accounts.push(account);
   await writeLocal(local);
   return account;
+}
+
+export async function listAccounts(): Promise<Account[]> {
+  if (usingSupabase) {
+    const { data, error } = await db()
+      .from("accounts")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(`listAccounts: ${error.message}`);
+    return (data ?? []).map(toAccount);
+  }
+  const local = await readLocal();
+  return [...local.accounts].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export async function updateAccountRole(id: string, role: Role): Promise<void> {
+  if (usingSupabase) {
+    const { error } = await db().from("accounts").update({ role }).eq("id", id);
+    if (error) throw new Error(`updateAccountRole: ${error.message}`);
+    return;
+  }
+  const local = await readLocal();
+  const account = local.accounts.find((a) => a.id === id);
+  if (account) account.role = role;
+  await writeLocal(local);
+}
+
+/** Removing an account takes its sightings with it, which moves rarity. */
+export async function deleteAccount(id: string): Promise<void> {
+  if (usingSupabase) {
+    // sightings.account_id is ON DELETE CASCADE, so they go with the row.
+    const { error } = await db().from("accounts").delete().eq("id", id);
+    if (error) throw new Error(`deleteAccount: ${error.message}`);
+    return;
+  }
+  const local = await readLocal();
+  local.accounts = local.accounts.filter((a) => a.id !== id);
+  local.sightings = local.sightings.filter((s) => s.accountId !== id);
+  await writeLocal(local);
 }
 
 /* ---------------------------------- media --------------------------------- */

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { viewerOrNull } from "@/lib/auth";
 import { DexView } from "@/components/DexView";
 
 export const dynamic = "force-dynamic";
 
 export default async function DexPage() {
-  const session = await getSession();
-  if (!session) redirect("/");
-  return <DexView role={session.role} username={session.username} />;
+  const me = await viewerOrNull();
+  if (!me) redirect("/");
+  return <DexView role={me.role} username={me.username} />;
 }
