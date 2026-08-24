@@ -9,7 +9,7 @@ import { DexProgress, SfxToggle } from "./Bits";
 import { CreatureDetail } from "./CreatureDetail";
 import type { PublicCreature } from "@/lib/types";
 
-export function DexView({ role, handle }: { role: "admin" | "public"; handle: string }) {
+export function DexView({ role, username }: { role: "admin" | "public"; username: string }) {
   const router = useRouter();
   const [creatures, setCreatures] = useState<PublicCreature[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
@@ -89,7 +89,7 @@ export function DexView({ role, handle }: { role: "admin" | "public"; handle: st
   return (
     <Shell
       title="ASHOKA POKEDEX"
-      subtitle={role === "admin" ? `ADMIN · ${handle}` : "TRAINER MODE"}
+      subtitle={role === "admin" ? `ADMIN · ${username}` : "TRAINER MODE"}
       actions={
         <>
           <SfxToggle />

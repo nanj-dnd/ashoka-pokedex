@@ -11,7 +11,7 @@ import type { Creature } from "@/lib/types";
 
 type Tab = "capture" | "queue";
 
-export function AdminView({ handle, needed }: { handle: string; needed: number }) {
+export function AdminView({ username, needed }: { username: string; needed: number }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("capture");
   const [queue, setQueue] = useState<Creature[]>([]);
@@ -78,7 +78,7 @@ export function AdminView({ handle, needed }: { handle: string; needed: number }
   return (
     <Shell
       title="ADMIN TERMINAL"
-      subtitle={`SIGNED IN AS ${handle}`}
+      subtitle={`SIGNED IN AS ${username}`}
       actions={
         <>
           <SfxToggle />
@@ -122,8 +122,8 @@ export function AdminView({ handle, needed }: { handle: string; needed: number }
           {queue.map((c) => {
             const approvals = c.votes.filter((v) => v.vote === "approve").length;
             const rejections = c.votes.filter((v) => v.vote === "reject").length;
-            const mine = c.votes.find((v) => v.handle === handle);
-            const own = c.submittedBy === handle;
+            const mine = c.votes.find((v) => v.username === username);
+            const own = c.submittedBy === username;
             // Pending entries have no sightings yet, so everyone sits at base rarity.
             const ink = RARITY_STYLE[BASE_RARITY].ink;
 
@@ -195,7 +195,7 @@ export function AdminView({ handle, needed }: { handle: string; needed: number }
 
                 {c.votes.length ? (
                   <div className="label" style={{ marginTop: 10 }}>
-                    VOTES — {c.votes.map((v) => `${v.handle}:${v.vote === "approve" ? "YES" : "NO"}`).join("  ")}
+                    VOTES — {c.votes.map((v) => `${v.username}:${v.vote === "approve" ? "YES" : "NO"}`).join("  ")}
                   </div>
                 ) : null}
               </div>

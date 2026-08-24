@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function DexPage() {
   const session = await getSession();
   if (!session) redirect("/");
-  return <DexView role={session.role} handle={session.handle} />;
+  return <DexView role={session.role} username={session.username} />;
 }

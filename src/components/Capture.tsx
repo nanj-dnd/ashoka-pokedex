@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BATCHES, HABITATS, STATS, TYPES, TYPE_HINT, batchLabel } from "@/lib/constants";
+import { BATCHES, HABITATS, STATS, STAT_HINT, TYPES, TYPE_HINT, batchLabel } from "@/lib/constants";
 import type { CreatureType } from "@/lib/constants";
 import { processCapture, processFile, type CapturedImages } from "@/lib/pixelate";
 import { api, sfx } from "@/lib/client";
 import { TypeChip } from "./Bits";
 import type { Stats } from "@/lib/types";
 
-const BLANK_STATS: Stats = { aura: 50, rizz: 50, yap: 50, chaos: 50, grind: 50, cooked: 50 };
+const BLANK_STATS: Stats = {
+  presence: 50, charm: 50, volume: 50, volatility: 50, discipline: 50, burnout: 50,
+};
 
 /** Form accent. Rarity is earned later, so there's no rarity colour to borrow. */
 const INK = "#35d6e6";
@@ -311,7 +313,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
           <button style={{ fontSize: 8 }} onClick={rollStats}>⚄ ROLL</button>
         </div>
         {STATS.map(({ key, label }) => (
-          <div className="stat-row" key={key}>
+          <div className="stat-row" key={key} title={STAT_HINT[key]}>
             <span className="stat-name">{label}</span>
             <input
               className="slider"

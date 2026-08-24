@@ -8,5 +8,5 @@ export default async function AdminPage() {
   const session = await getSession();
   if (!session) redirect("/");
   if (session.role !== "admin") redirect("/dex");
-  return <AdminView handle={session.handle} needed={requiredApprovals()} />;
+  return <AdminView username={session.username} needed={requiredApprovals()} />;
 }

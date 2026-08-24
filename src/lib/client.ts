@@ -1,28 +1,11 @@
 "use client";
 
-/* Small browser-side helpers: device identity, fetch wrappers, chiptune blips. */
-
-const DEVICE_KEY = "ashoka-dex-device";
-
-/** A random per-browser id so "seen" lists survive without accounts. */
-export function deviceId(): string {
-  if (typeof window === "undefined") return "";
-  let id = localStorage.getItem(DEVICE_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(DEVICE_KEY, id);
-  }
-  return id;
-}
+/* Small browser-side helpers: fetch wrapper and chiptune blips. */
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "x-device-id": deviceId(),
-      ...(init?.headers ?? {}),
-    },
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `REQUEST FAILED (${res.status})`);

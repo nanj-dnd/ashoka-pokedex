@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     spriteUrl,
     photoUrl: str(body.photoUrl, 500),
     status: "pending",
-    submittedBy: session.handle,
+    submittedBy: session.username,
     votes: [],
     createdAt: new Date().toISOString(),
     approvedAt: null,

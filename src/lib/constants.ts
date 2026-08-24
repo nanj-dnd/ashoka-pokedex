@@ -168,13 +168,23 @@ export function batchLabel(batch: string, now = new Date()): string {
 /* -------------------------------------------------------------------------- */
 
 export const STATS = [
-  { key: "aura", label: "AURA" },
-  { key: "rizz", label: "RIZZ" },
-  { key: "yap", label: "YAP" },
-  { key: "chaos", label: "CHAOS" },
-  { key: "grind", label: "GRIND" },
-  { key: "cooked", label: "COOKED" },
+  { key: "presence", label: "PRESENCE" },
+  { key: "charm", label: "CHARM" },
+  { key: "volume", label: "VOLUME" },
+  { key: "volatility", label: "VOLATILITY" },
+  { key: "discipline", label: "DISCIPLINE" },
+  { key: "burnout", label: "BURNOUT" },
 ] as const;
+
+/** Shown under the sliders so the axes aren't ambiguous. */
+export const STAT_HINT: Record<(typeof STATS)[number]["key"], string> = {
+  presence: "How much room they take up.",
+  charm: "How easily they get away with it.",
+  volume: "Words per minute, unprompted.",
+  volatility: "Distance from calm to incident.",
+  discipline: "Whether the work actually gets done.",
+  burnout: "How close to the edge they are.",
+};
 
 export type StatKey = (typeof STATS)[number]["key"];
 

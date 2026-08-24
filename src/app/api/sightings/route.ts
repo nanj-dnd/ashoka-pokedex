@@ -1,28 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { setSighting, sightingsForDevice } from "@/lib/store";
+import { setSighting, sightingsForAccount } from "@/lib/store";
 import { storeError } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * "Seen" is per-device, not per-account — there are no accounts, just codes.
- * The client mints a random device id into localStorage and sends it here.
- */
-function deviceId(req: Request): string | null {
-  const id = req.headers.get("x-device-id");
-  if (!id || !/^[a-zA-Z0-9-]{8,64}$/.test(id)) return null;
-  return id;
-}
-
-export async function GET(req: Request) {
+/** Seen marks belong to the signed-in account, so they follow you across devices. */
+export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
-  const id = deviceId(req);
-  if (!id) return NextResponse.json({ seen: [] });
   try {
-    return NextResponse.json({ seen: await sightingsForDevice(id) });
+    return NextResponse.json({ seen: await sightingsForAccount(session.accountId) });
   } catch (e) {
     return storeError(e);
   }
@@ -31,8 +20,6 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
-  const id = deviceId(req);
-  if (!id) return NextResponse.json({ error: "NO DEVICE" }, { status: 400 });
 
   const { creatureId, seen } = (await req.json().catch(() => ({}))) as {
     creatureId?: string;
@@ -43,7 +30,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await setSighting(creatureId, id, Boolean(seen));
+    await setSighting(creatureId, session.accountId, Boolean(seen));
   } catch (e) {
     return storeError(e);
   }

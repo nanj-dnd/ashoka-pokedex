@@ -8,7 +8,7 @@ export type CreatureStatus = "pending" | "approved" | "rejected";
 export type Stats = Record<StatKey, number>;
 
 export interface Vote {
-  handle: string;
+  username: string;
   vote: "approve" | "reject";
   at: string;
 }
@@ -46,9 +46,26 @@ export interface Creature {
 export type PublicCreature = Omit<Creature, "votes" | "submittedBy" | "status"> &
   RarityStanding;
 
-export interface SessionPayload {
+export interface Account {
+  id: string;
+  username: string;
+  /** scrypt hash — never leaves the server. */
+  passwordHash: string;
   role: Role;
-  handle: string;
+  createdAt: string;
+}
+
+/** What the client is allowed to know about the signed-in account. */
+export interface PublicAccount {
+  id: string;
+  username: string;
+  role: Role;
+}
+
+export interface SessionPayload {
+  accountId: string;
+  username: string;
+  role: Role;
   exp: number;
 }
 

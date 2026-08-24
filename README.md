@@ -9,10 +9,18 @@ Lives at: **primafacie.in**
 
 ## How it works
 
-| Env var | Mode | Can do |
-|---------|------|--------|
+Everyone has a **username and password account**. The access code is not a login —
+it is the invitation that lets you *create* an account, and it decides what kind:
+
+| Env var | Creates | Can do |
+|---------|---------|--------|
 | `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen |
 | `ADMIN_CODE` | Admin | Everything above, plus capture new entries and vote on the queue |
+
+After sign-up you only ever need your username and password; the code is never
+asked for again. Usernames are case-insensitive. Passwords are hashed with
+scrypt from the Node standard library (`src/lib/password.ts`) — never stored in
+plain text, never returned by any endpoint.
 
 The actual codes live in the environment and are **not in this repo** — it's
 public. There are no fallback values in the source: if the vars are unset, every
@@ -47,8 +55,8 @@ crown each other MYTHIC on day one. Thresholds scale as the dex grows: at 10
 players LEGENDARY takes 8 sightings, at 40 players it takes 20. The ladder lives
 in `src/lib/constants.ts` (`RARITY_LADDER`) and the maths in `src/lib/rarity.ts`.
 
-**Seen tracking** is per-device — a random id in `localStorage`, no accounts.
-The same browser keeps its progress across both codes.
+**Seen tracking** belongs to your account, so your progress follows you between
+your phone and your laptop.
 
 **Photos** are crushed to a 96×96 colour-quantised sprite in the browser before
 upload. The sprite is what the dex shows; the full photo is kept alongside it and
@@ -81,8 +89,8 @@ stops being served there — see the warning at the end of this section.
 
 **1. Supabase**
 
-- Create a project, then run [`supabase/schema.sql`](supabase/schema.sql) in the
-  SQL editor. It creates both tables, locks them with deny-by-default RLS, and
+- Create a project, then run [`supabase/schema.sql`](supabase/schema.sql) and
+  [`supabase/002_accounts.sql`](supabase/002_accounts.sql) in the SQL editor. It creates both tables, locks them with deny-by-default RLS, and
   creates the public `dex-media` storage bucket.
 - Copy the project URL and the **secret** key from Settings → API Keys →
   Secret keys (`sb_secret_…`; on older projects, the `service_role` JWT).

@@ -40,14 +40,15 @@ export function decodeSession(token: string | undefined): SessionPayload | null 
     const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as SessionPayload;
     if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
     if (payload.role !== "admin" && payload.role !== "public") return null;
+    if (typeof payload.accountId !== "string" || !payload.accountId) return null;
     return payload;
   } catch {
     return null;
   }
 }
 
-export function newSession(role: Role, handle: string): string {
-  return encodeSession({ role, handle, exp: Date.now() + SESSION_TTL_MS });
+export function newSession(accountId: string, username: string, role: Role): string {
+  return encodeSession({ accountId, username, role, exp: Date.now() + SESSION_TTL_MS });
 }
 
 /** Read the current session inside a server component or route handler. */
@@ -65,14 +66,13 @@ export async function requireRole(role: Role): Promise<SessionPayload | null> {
 }
 
 /**
- * Codes are compared server-side only; they never reach the client bundle.
- * Both are checked every time so the response time does not leak which
- * code was closer to correct.
+ * The access code is no longer a login — it is the invitation that lets someone
+ * CREATE an account, and it decides whether that account is an admin or a
+ * trainer. After sign-up people use a username and password.
  *
+ * Codes are compared server-side only; they never reach the client bundle.
  * There are deliberately NO fallback values here. This repo is public, so a
  * hardcoded default would just be the door code published on the internet.
- * Set ADMIN_CODE and PUBLIC_CODE in the environment; if they are missing,
- * every code is refused rather than silently accepting a known default.
  */
 export function roleForCode(code: string): Role | null {
   const adminCode = process.env.ADMIN_CODE?.trim();

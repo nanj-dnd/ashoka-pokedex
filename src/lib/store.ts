@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BASE_RARITY } from "./constants";
-import type { Creature, CreatureStatus } from "./types";
+import type { Account, Creature, CreatureStatus } from "./types";
 
 /* -------------------------------------------------------------------------- */
 /*  Backend selection                                                          */
@@ -34,7 +34,8 @@ const MEDIA_DIR = path.join(DATA_DIR, "media");
 
 interface LocalDb {
   creatures: Creature[];
-  sightings: { creatureId: string; deviceId: string }[];
+  sightings: { creatureId: string; accountId: string }[];
+  accounts: Account[];
 }
 
 /**
@@ -55,9 +56,10 @@ function assertLocalUsable(): void {
 async function readLocal(): Promise<LocalDb> {
   assertLocalUsable();
   try {
-    return JSON.parse(await fs.readFile(DB_FILE, "utf8")) as LocalDb;
+    const db = JSON.parse(await fs.readFile(DB_FILE, "utf8")) as Partial<LocalDb>;
+    return { creatures: db.creatures ?? [], sightings: db.sightings ?? [], accounts: db.accounts ?? [] };
   } catch {
-    return { creatures: [], sightings: [] };
+    return { creatures: [], sightings: [], accounts: [] };
   }
 }
 
@@ -202,44 +204,44 @@ export async function nextDexNumber(): Promise<number> {
 
 export async function setSighting(
   creatureId: string,
-  deviceId: string,
+  accountId: string,
   seen: boolean,
 ): Promise<void> {
   if (usingSupabase) {
     if (seen) {
       const { error } = await db()
         .from("sightings")
-        .upsert({ creature_id: creatureId, device_id: deviceId }, { onConflict: "creature_id,device_id" });
+        .upsert({ creature_id: creatureId, account_id: accountId }, { onConflict: "creature_id,account_id" });
       if (error) throw new Error(`setSighting: ${error.message}`);
     } else {
       const { error } = await db()
         .from("sightings")
         .delete()
         .eq("creature_id", creatureId)
-        .eq("device_id", deviceId);
+        .eq("account_id", accountId);
       if (error) throw new Error(`setSighting: ${error.message}`);
     }
     return;
   }
   const local = await readLocal();
   local.sightings = local.sightings.filter(
-    (s) => !(s.creatureId === creatureId && s.deviceId === deviceId),
+    (s) => !(s.creatureId === creatureId && s.accountId === accountId),
   );
-  if (seen) local.sightings.push({ creatureId, deviceId });
+  if (seen) local.sightings.push({ creatureId, accountId });
   await writeLocal(local);
 }
 
-export async function sightingsForDevice(deviceId: string): Promise<string[]> {
+export async function sightingsForAccount(accountId: string): Promise<string[]> {
   if (usingSupabase) {
     const { data, error } = await db()
       .from("sightings")
       .select("creature_id")
-      .eq("device_id", deviceId);
-    if (error) throw new Error(`sightingsForDevice: ${error.message}`);
+      .eq("account_id", accountId);
+    if (error) throw new Error(`sightingsForAccount: ${error.message}`);
     return (data ?? []).map((r) => r.creature_id as string);
   }
   const local = await readLocal();
-  return local.sightings.filter((s) => s.deviceId === deviceId).map((s) => s.creatureId);
+  return local.sightings.filter((s) => s.accountId === accountId).map((s) => s.creatureId);
 }
 
 /** creatureId -> how many distinct devices have marked it seen. */
@@ -258,18 +260,85 @@ export async function seenCounts(): Promise<Record<string, number>> {
 }
 
 /**
- * How many distinct devices are actually playing — the denominator for earned
- * rarity. Derived from sightings rather than a separate table: someone who has
- * never marked anyone seen isn't participating in the ranking.
+ * Everyone with an account — the denominator for earned rarity. Now that
+ * accounts exist this is a real headcount rather than a guess from activity.
  */
 export async function activePlayers(): Promise<number> {
   if (usingSupabase) {
-    const { data, error } = await db().from("sightings").select("device_id");
+    const { count, error } = await db()
+      .from("accounts")
+      .select("id", { count: "exact", head: true });
     if (error) throw new Error(`activePlayers: ${error.message}`);
-    return new Set((data ?? []).map((r) => r.device_id as string)).size;
+    return count ?? 0;
   }
   const local = await readLocal();
-  return new Set(local.sightings.map((s) => s.deviceId)).size;
+  return local.accounts.length;
+}
+
+/* --------------------------------- accounts -------------------------------- */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function toAccount(row: any): Account {
+  return {
+    id: row.id,
+    username: row.username,
+    passwordHash: row.password_hash,
+    role: row.role,
+    createdAt: row.created_at,
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+export async function findAccountByUsername(username: string): Promise<Account | null> {
+  if (usingSupabase) {
+    // ilike with no wildcards is an exact, case-insensitive match.
+    const { data, error } = await db()
+      .from("accounts")
+      .select("*")
+      .ilike("username", username)
+      .limit(1);
+    if (error) throw new Error(`findAccountByUsername: ${error.message}`);
+    return data?.[0] ? toAccount(data[0]) : null;
+  }
+  const local = await readLocal();
+  const key = username.toLowerCase();
+  return local.accounts.find((a) => a.username.toLowerCase() === key) ?? null;
+}
+
+export async function findAccountById(id: string): Promise<Account | null> {
+  if (usingSupabase) {
+    const { data, error } = await db().from("accounts").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(`findAccountById: ${error.message}`);
+    return data ? toAccount(data) : null;
+  }
+  const local = await readLocal();
+  return local.accounts.find((a) => a.id === id) ?? null;
+}
+
+export async function createAccount(account: Account): Promise<Account> {
+  if (usingSupabase) {
+    const { data, error } = await db()
+      .from("accounts")
+      .insert({
+        id: account.id,
+        username: account.username,
+        password_hash: account.passwordHash,
+        role: account.role,
+        created_at: account.createdAt,
+      })
+      .select()
+      .single();
+    // 23505 = unique violation, i.e. the username was taken between check and insert.
+    if (error) throw new Error(error.code === "23505" ? "USERNAME TAKEN" : `createAccount: ${error.message}`);
+    return toAccount(data);
+  }
+  const local = await readLocal();
+  if (local.accounts.some((a) => a.username.toLowerCase() === account.username.toLowerCase())) {
+    throw new Error("USERNAME TAKEN");
+  }
+  local.accounts.push(account);
+  await writeLocal(local);
+  return account;
 }
 
 /* ---------------------------------- media --------------------------------- */

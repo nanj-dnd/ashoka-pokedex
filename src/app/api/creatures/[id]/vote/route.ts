@@ -10,7 +10,7 @@ export const runtime = "nodejs";
  *
  * House rules:
  *   - admins only, and never on your own submission
- *   - one vote per handle (voting again replaces your previous vote)
+ *   - one vote per account (voting again replaces your previous vote)
  *   - REQUIRED_APPROVALS distinct approvals promotes the entry to the public dex
  *   - the same number of rejections kills it
  */
@@ -31,12 +31,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (creature.status !== "pending") {
     return NextResponse.json({ error: "ALREADY RESOLVED" }, { status: 409 });
   }
-  if (creature.submittedBy === session.handle) {
+  if (creature.submittedBy === session.username) {
     return NextResponse.json({ error: "CANNOT VOTE ON YOUR OWN CATCH" }, { status: 403 });
   }
 
-  const next: Vote = { handle: session.handle, vote, at: new Date().toISOString() };
-  const votes = [...creature.votes.filter((v) => v.handle !== session.handle), next];
+  const next: Vote = { username: session.username, vote, at: new Date().toISOString() };
+  const votes = [...creature.votes.filter((v) => v.username !== session.username), next];
 
   const approvals = votes.filter((v) => v.vote === "approve").length;
   const rejections = votes.filter((v) => v.vote === "reject").length;
