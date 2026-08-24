@@ -53,65 +53,68 @@ export const RARITY_FLAVOUR: Record<Rarity, string> = {
 /*  Types — personality, not geography                                         */
 /* -------------------------------------------------------------------------- */
 
-/** Where someone hangs out is the HABITAT. Type is what they *are*. */
+/**
+ * Where someone hangs out is the HABITAT. Type is what they *are* — archetypes,
+ * not slang. The joke should be in the description, not the label.
+ */
 export const TYPES = [
-  "YAPPER",
-  "GHOST",
-  "GYMBRO",
-  "SITUATIONSHIP",
-  "ACAD WEAPON",
-  "DELULU",
-  "MAIN CHARACTER",
-  "NPC",
-  "RIZZLER",
+  "ORATOR",
+  "RECLUSE",
+  "ATHLETE",
+  "ROMANTIC",
+  "SCHOLAR",
+  "VISIONARY",
+  "PROTAGONIST",
+  "BYSTANDER",
+  "CHARMER",
   "NOCTURNAL",
   "CAFFEINATED",
   "MENACE",
   "OVERCOMMITTED",
   "FREELOADER",
-  "CRASHOUT",
-  "GRASS-TOUCHER",
+  "COMBUSTIBLE",
+  "NATURALIST",
 ] as const;
 
 export type CreatureType = (typeof TYPES)[number];
 
 export const TYPE_COLOR: Record<CreatureType, string> = {
-  YAPPER: "#f59e0b",
-  GHOST: "#94a3b8",
-  GYMBRO: "#ef4444",
-  SITUATIONSHIP: "#fb7185",
-  "ACAD WEAPON": "#7c9cff",
-  DELULU: "#e879f9",
-  "MAIN CHARACTER": "#fbbf24",
-  NPC: "#64748b",
-  RIZZLER: "#f472b6",
+  ORATOR: "#f59e0b",
+  RECLUSE: "#94a3b8",
+  ATHLETE: "#ef4444",
+  ROMANTIC: "#fb7185",
+  SCHOLAR: "#7c9cff",
+  VISIONARY: "#e879f9",
+  PROTAGONIST: "#fbbf24",
+  BYSTANDER: "#64748b",
+  CHARMER: "#f472b6",
   NOCTURNAL: "#6366f1",
   CAFFEINATED: "#a16207",
   MENACE: "#dc2626",
   OVERCOMMITTED: "#2dd4bf",
   FREELOADER: "#84cc16",
-  CRASHOUT: "#fb923c",
-  "GRASS-TOUCHER": "#22c55e",
+  COMBUSTIBLE: "#fb923c",
+  NATURALIST: "#22c55e",
 };
 
-/** One-liners shown while picking, so the types stay legible to everyone. */
+/** One-liners shown while picking. This is where the humour lives. */
 export const TYPE_HINT: Record<CreatureType, string> = {
-  YAPPER: "Has never finished a story.",
-  GHOST: "Left you on read in 2024.",
-  GYMBRO: "Rest day is a myth.",
-  SITUATIONSHIP: "It's complicated, allegedly.",
-  "ACAD WEAPON": "Ruins the curve on purpose.",
-  DELULU: "The plan is not going to work.",
-  "MAIN CHARACTER": "Walks like there's a soundtrack.",
-  NPC: "Same four sentences, every time.",
-  RIZZLER: "Unreasonably smooth.",
-  NOCTURNAL: "Peaks at 3am.",
-  CAFFEINATED: "Vibrating slightly.",
-  MENACE: "Banned from at least one group chat.",
-  OVERCOMMITTED: "In nine societies, present in none.",
-  FREELOADER: "Added their name to the slides.",
-  CRASHOUT: "One bad email from detonating.",
-  "GRASS-TOUCHER": "Genuinely goes outside.",
+  ORATOR: "Has never once finished a story.",
+  RECLUSE: "Last confirmed sighting was in March.",
+  ATHLETE: "Treats the rest day as theoretical.",
+  ROMANTIC: "It is, allegedly, complicated.",
+  SCHOLAR: "Ruins the curve and apologises for it.",
+  VISIONARY: "The plan is not going to work.",
+  PROTAGONIST: "Walks like there is a soundtrack.",
+  BYSTANDER: "Same four sentences, every time.",
+  CHARMER: "Talks their way out of everything.",
+  NOCTURNAL: "Comes alive at 3am, useless by noon.",
+  CAFFEINATED: "Vibrating slightly, at all times.",
+  MENACE: "Removed from at least one group chat.",
+  OVERCOMMITTED: "In nine societies, present at none.",
+  FREELOADER: "Added their name to the slides on Sunday night.",
+  COMBUSTIBLE: "One badly worded email from detonating.",
+  NATURALIST: "Astonishingly, goes outside.",
 };
 
 /* -------------------------------------------------------------------------- */
