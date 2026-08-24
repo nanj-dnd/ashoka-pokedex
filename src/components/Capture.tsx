@@ -205,7 +205,7 @@ export function Capture({ onSubmitted }: { onSubmitted: () => void }) {
 
         {camError ? <div className="err" style={{ marginTop: 10 }}>{camError}</div> : null}
         <div className="label" style={{ marginTop: 10 }}>
-          PHOTOS ARE CRUSHED TO A 96×96 SPRITE ON THIS DEVICE.
+          PHOTOS BECOME A 160×160 SPRITE ON THIS DEVICE. CHECK THEY&apos;RE STILL RECOGNISABLE.
         </div>
       </div>
 

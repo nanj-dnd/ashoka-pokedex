@@ -17,8 +17,9 @@ export function CreatureDetail({
   onToggleSeen?: () => void;
   onClose: () => void;
 }) {
-  // Sprite by default; the real photo is the reward for opening the entry.
-  const [showPhoto, setShowPhoto] = useState(false);
+  // The grid shows sprites; opening an entry is where you confirm who it is, so
+  // lead with the real photo when there is one.
+  const [showPhoto, setShowPhoto] = useState(true);
   const ink = (RARITY_STYLE[creature.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
 
   useEffect(() => {

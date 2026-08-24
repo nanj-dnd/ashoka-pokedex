@@ -191,7 +191,20 @@ export const STAT_HINT: Record<(typeof STATS)[number]["key"], string> = {
 
 export type StatKey = (typeof STATS)[number]["key"];
 
-/** Sprite resolution. Small on purpose — it is the whole aesthetic. */
-export const SPRITE_SIZE = 96;
+/**
+ * Sprite resolution. Low enough to read as pixel art, high enough that you can
+ * actually tell who it is — recognising the person is the point of the dex, so
+ * fidelity wins over purity. Raise this if faces are still too mushy.
+ */
+export const SPRITE_SIZE = 160;
+
+/**
+ * Colour levels per channel when quantising. 5 (125 colours) crushed skin tones
+ * into flat blocks; 8 gives 512 and keeps features readable.
+ */
+export const SPRITE_LEVELS = 8;
+
+/** Slight punch, not a poster effect. */
+export const SPRITE_SATURATION = 1.15;
 /** Long edge of the stored full-colour photo. */
 export const PHOTO_SIZE = 720;

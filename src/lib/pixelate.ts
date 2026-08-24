@@ -1,6 +1,6 @@
 "use client";
 
-import { PHOTO_SIZE, SPRITE_SIZE } from "./constants";
+import { PHOTO_SIZE, SPRITE_LEVELS, SPRITE_SATURATION, SPRITE_SIZE } from "./constants";
 
 /** Load any blob/file into a decoded bitmap we can draw. */
 export async function loadImage(src: Blob | string): Promise<HTMLImageElement> {
@@ -41,29 +41,49 @@ function squareDraw(
 }
 
 /**
- * Snap every channel to a small number of levels and push saturation up.
- * This is what makes a phone photo read as a sprite rather than a thumbnail.
+ * 4x4 Bayer matrix, normalised to -0.5..+0.5. Nudging each pixel by a threshold
+ * from this pattern before snapping turns hard colour banding into a fine
+ * chequer — which is both more readable on a face and more authentically 8-bit
+ * than flat posterised blobs.
  */
-function quantize(canvas: HTMLCanvasElement, levels = 5, saturation = 1.35): HTMLCanvasElement {
+const BAYER_4 = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+].map((row) => row.map((v) => v / 16 - 0.5));
+
+/**
+ * Reduce to a small palette while keeping the face legible: mild saturation,
+ * ordered dithering, then snap each channel to `levels` steps.
+ */
+function quantize(
+  canvas: HTMLCanvasElement,
+  levels = SPRITE_LEVELS,
+  saturation = SPRITE_SATURATION,
+): HTMLCanvasElement {
   const ctx = canvas.getContext("2d")!;
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = img.data;
   const step = 255 / (levels - 1);
 
-  for (let i = 0; i < d.length; i += 4) {
-    let r = d[i];
-    let g = d[i + 1];
-    let b = d[i + 2];
+  for (let y = 0; y < canvas.height; y++) {
+    for (let z = 0; z < canvas.width; z++) {
+      const i = (y * canvas.width + z) * 4;
+      const threshold = BAYER_4[y & 3][z & 3] * step;
 
-    // Saturate around luma before snapping, so the palette stays punchy.
-    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-    r = luma + (r - luma) * saturation;
-    g = luma + (g - luma) * saturation;
-    b = luma + (b - luma) * saturation;
+      const r = d[i];
+      const g = d[i + 1];
+      const b = d[i + 2];
+      const luma = 0.299 * r + 0.587 * g + 0.114 * b;
 
-    d[i] = Math.round(Math.min(255, Math.max(0, r)) / step) * step;
-    d[i + 1] = Math.round(Math.min(255, Math.max(0, g)) / step) * step;
-    d[i + 2] = Math.round(Math.min(255, Math.max(0, b)) / step) * step;
+      for (let k = 0; k < 3; k++) {
+        const channel = [r, g, b][k];
+        const saturated = luma + (channel - luma) * saturation;
+        const dithered = saturated + threshold;
+        d[i + k] = Math.round(Math.min(255, Math.max(0, dithered)) / step) * step;
+      }
+    }
   }
 
   ctx.putImageData(img, 0, 0);
