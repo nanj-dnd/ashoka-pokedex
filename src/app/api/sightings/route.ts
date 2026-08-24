@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { setSighting, sightingsForDevice } from "@/lib/store";
+import { storeError } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,11 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "NO SESSION" }, { status: 401 });
   const id = deviceId(req);
   if (!id) return NextResponse.json({ seen: [] });
-  return NextResponse.json({ seen: await sightingsForDevice(id) });
+  try {
+    return NextResponse.json({ seen: await sightingsForDevice(id) });
+  } catch (e) {
+    return storeError(e);
+  }
 }
 
 export async function POST(req: Request) {
@@ -37,6 +42,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "BAD REQUEST" }, { status: 400 });
   }
 
-  await setSighting(creatureId, id, Boolean(seen));
+  try {
+    await setSighting(creatureId, id, Boolean(seen));
+  } catch (e) {
+    return storeError(e);
+  }
   return NextResponse.json({ ok: true });
 }

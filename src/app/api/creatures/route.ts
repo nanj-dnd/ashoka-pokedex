@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getSession } from "@/lib/session";
+import { storeError } from "@/lib/apiError";
 import { listCreatures, saveCreature, seenCounts } from "@/lib/store";
 import { RARITIES, STATS, TYPES } from "@/lib/constants";
 import type { Creature, PublicCreature, Stats } from "@/lib/types";
@@ -27,17 +28,21 @@ export async function GET(req: Request) {
 
   const scope = new URL(req.url).searchParams.get("scope") ?? "public";
 
-  if (scope === "pending") {
-    if (session.role !== "admin") {
-      return NextResponse.json({ error: "ADMINS ONLY" }, { status: 403 });
+  try {
+    if (scope === "pending") {
+      if (session.role !== "admin") {
+        return NextResponse.json({ error: "ADMINS ONLY" }, { status: 403 });
+      }
+      const pending = await listCreatures("pending");
+      return NextResponse.json({ creatures: pending });
     }
-    const pending = await listCreatures("pending");
-    return NextResponse.json({ creatures: pending });
-  }
 
-  const [approved, counts] = await Promise.all([listCreatures("approved"), seenCounts()]);
-  const sorted = approved.sort((a, b) => (a.dexNumber ?? 0) - (b.dexNumber ?? 0));
-  return NextResponse.json({ creatures: sorted.map((c) => toPublic(c, counts)) });
+    const [approved, counts] = await Promise.all([listCreatures("approved"), seenCounts()]);
+    const sorted = approved.sort((a, b) => (a.dexNumber ?? 0) - (b.dexNumber ?? 0));
+    return NextResponse.json({ creatures: sorted.map((c) => toPublic(c, counts)) });
+  } catch (e) {
+    return storeError(e);
+  }
 }
 
 function clampStat(v: unknown): number {
@@ -105,6 +110,10 @@ export async function POST(req: Request) {
     approvedAt: null,
   };
 
-  await saveCreature(creature);
+  try {
+    await saveCreature(creature);
+  } catch (e) {
+    return storeError(e);
+  }
   return NextResponse.json({ creature }, { status: 201 });
 }
