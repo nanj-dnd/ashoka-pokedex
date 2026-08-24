@@ -9,10 +9,14 @@ Lives at: **primafacie.in**
 
 ## How it works
 
-| Code | Mode | Can do |
-|------|------|--------|
-| `1201` | Trainer (public) | Browse the approved dex, open entries, mark who they've seen |
-| `1205` | Admin | Everything above, plus capture new entries and vote on the queue |
+| Env var | Mode | Can do |
+|---------|------|--------|
+| `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen |
+| `ADMIN_CODE` | Admin | Everything above, plus capture new entries and vote on the queue |
+
+The actual codes live in the environment and are **not in this repo** — it's
+public. There are no fallback values in the source: if the vars are unset, every
+code is refused.
 
 Admins pick a **handle** when they enter (e.g. `ANSHUL`). It signs their votes.
 
@@ -38,11 +42,12 @@ revealed with `VIEW PHOTO` on the detail card.
 
 ```bash
 npm install
-cp .env.local.example .env.local   # works as-is
+cp .env.local.example .env.local
+# then set ADMIN_CODE and PUBLIC_CODE in .env.local to whatever you want
 npm run dev
 ```
 
-Open http://localhost:3000 and enter `1205`.
+Open http://localhost:3000 and enter your admin code.
 
 With `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` blank, the app runs
 on a **local JSON store** at `.data/` (git-ignored) with images on disk. Zero
@@ -71,8 +76,8 @@ Use a *new* Supabase project, not the dating app's. They share nothing.
 
 | Key | Value |
 |-----|-------|
-| `ADMIN_CODE` | `1205` |
-| `PUBLIC_CODE` | `1201` |
+| `ADMIN_CODE` | your admin code |
+| `PUBLIC_CODE` | your trainer code |
 | `SESSION_SECRET` | `openssl rand -hex 32` — **must** be set in production |
 | `NEXT_PUBLIC_SUPABASE_URL` | your project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | service role key (server-only, never `NEXT_PUBLIC_`) |

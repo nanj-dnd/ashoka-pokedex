@@ -68,13 +68,20 @@ export async function requireRole(role: Role): Promise<SessionPayload | null> {
  * Codes are compared server-side only; they never reach the client bundle.
  * Both are checked every time so the response time does not leak which
  * code was closer to correct.
+ *
+ * There are deliberately NO fallback values here. This repo is public, so a
+ * hardcoded default would just be the door code published on the internet.
+ * Set ADMIN_CODE and PUBLIC_CODE in the environment; if they are missing,
+ * every code is refused rather than silently accepting a known default.
  */
 export function roleForCode(code: string): Role | null {
-  const adminCode = process.env.ADMIN_CODE ?? "1205";
-  const publicCode = process.env.PUBLIC_CODE ?? "1201";
+  const adminCode = process.env.ADMIN_CODE?.trim();
+  const publicCode = process.env.PUBLIC_CODE?.trim();
+  if (!adminCode && !publicCode) return null;
   const trimmed = code.trim();
-  const isAdmin = safeEqual(trimmed.padEnd(32, "\0").slice(0, 32), adminCode.padEnd(32, "\0").slice(0, 32));
-  const isPublic = safeEqual(trimmed.padEnd(32, "\0").slice(0, 32), publicCode.padEnd(32, "\0").slice(0, 32));
+  const pad = (v: string) => v.padEnd(32, "\0").slice(0, 32);
+  const isAdmin = Boolean(adminCode) && safeEqual(pad(trimmed), pad(adminCode!));
+  const isPublic = Boolean(publicCode) && safeEqual(pad(trimmed), pad(publicCode!));
   if (isAdmin) return "admin";
   if (isPublic) return "public";
   return null;
