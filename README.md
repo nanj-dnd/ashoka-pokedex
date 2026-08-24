@@ -66,7 +66,10 @@ stops being served there — see the warning at the end of this section.
 - Create a project, then run [`supabase/schema.sql`](supabase/schema.sql) in the
   SQL editor. It creates both tables, locks them with deny-by-default RLS, and
   creates the public `dex-media` storage bucket.
-- Copy the project URL and the **service role** key from Settings → API.
+- Copy the project URL and the **secret** key from Settings → API Keys →
+  Secret keys (`sb_secret_…`; on older projects, the `service_role` JWT).
+  Not the publishable/anon key — the app never uses it, and the deny-by-default
+  RLS above means it can read and write nothing.
 
 Use a *new* Supabase project, not the dating app's. They share nothing.
 
@@ -80,7 +83,7 @@ Use a *new* Supabase project, not the dating app's. They share nothing.
 | `PUBLIC_CODE` | your trainer code |
 | `SESSION_SECRET` | `openssl rand -hex 32` — **must** be set in production |
 | `NEXT_PUBLIC_SUPABASE_URL` | your project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | service role key (server-only, never `NEXT_PUBLIC_`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | the **secret** key `sb_secret_…` (server-only, never `NEXT_PUBLIC_`) |
 | `SUPABASE_STORAGE_BUCKET` | `dex-media` |
 | `REQUIRED_APPROVALS` | `2` |
 | `NEXT_PUBLIC_SITE_URL` | `https://primafacie.in` |
