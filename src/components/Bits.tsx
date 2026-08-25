@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RARITY_STYLE, STATS, TYPE_COLOR, type CreatureType, type Rarity } from "@/lib/constants";
 import { sfxEnabled, toggleSfx, sfx } from "@/lib/client";
+import { MAX_ZOOM } from "@/lib/pixelate";
 import type { Stats } from "@/lib/types";
 
 export function TypeChip({ type, outline }: { type: CreatureType; outline?: boolean }) {
@@ -58,6 +59,46 @@ export function Pips({ have, need }: { have: number; need: number }) {
       {Array.from({ length: need }, (_, i) => (
         <i key={i} className={`pip${i < have ? " on" : ""}`} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Framing control for a capture. Zoom is a centre crop of the frame, so it can
+ * be moved as often as you like without ever degrading the original.
+ */
+export function ZoomSlider({
+  value,
+  onChange,
+  ink,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  ink: string;
+}) {
+  return (
+    <div className="zoom-row">
+      <span className="stat-name">ZOOM</span>
+      <input
+        className="slider"
+        type="range"
+        min={1}
+        max={MAX_ZOOM}
+        step={0.1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label="Zoom"
+        style={{ ["--bar-c" as string]: ink }}
+      />
+      <span className="stat-val">{value.toFixed(1)}×</span>
+      <button
+        className="ghost"
+        style={{ fontSize: 8, flex: "0 0 auto", padding: "6px 8px" }}
+        onClick={() => { sfx.move(); onChange(1); }}
+        disabled={value === 1}
+      >
+        1×
+      </button>
     </div>
   );
 }

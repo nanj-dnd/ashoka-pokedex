@@ -19,15 +19,33 @@ export async function loadImage(src: Blob | string): Promise<HTMLImageElement> {
   }
 }
 
-/** Centre-crop `source` to a square and draw it into a size×size canvas. */
+/**
+ * How far into the frame you can crop. Zoom is digital — it takes a smaller
+ * square out of the middle of the same frame — so this is really a limit on how
+ * much upscaling the stored photo can take before it goes soft. At 3x a 1280px
+ * camera frame still yields a ~426px crop, which the 160px sprite never
+ * notices and the 720px photo survives.
+ */
+export const MAX_ZOOM = 3;
+
+export function clampZoom(zoom: number): number {
+  return Number.isFinite(zoom) ? Math.min(MAX_ZOOM, Math.max(1, zoom)) : 1;
+}
+
+/**
+ * Centre-crop `source` to a square and draw it into a size×size canvas.
+ * `zoom` shrinks the square that gets taken, so 2 frames half as much of the
+ * scene — the crop stays centred, which is where the viewfinder reticle is.
+ */
 function squareDraw(
   source: CanvasImageSource,
   sw: number,
   sh: number,
   size: number,
   smooth: boolean,
+  zoom = 1,
 ): HTMLCanvasElement {
-  const side = Math.min(sw, sh);
+  const side = Math.min(sw, sh) / clampZoom(zoom);
   const sx = (sw - side) / 2;
   const sy = (sh - side) / 2;
 
@@ -105,12 +123,12 @@ function dims(source: CanvasImageSource): { w: number; h: number } {
 }
 
 /** Turn a video frame or an uploaded photo into a sprite + a stored photo. */
-export function processCapture(source: CanvasImageSource): CapturedImages {
+export function processCapture(source: CanvasImageSource, zoom = 1): CapturedImages {
   const { w, h } = dims(source);
   if (!w || !h) throw new Error("Nothing to capture yet");
 
-  const sprite = quantize(squareDraw(source, w, h, SPRITE_SIZE, false));
-  const photo = squareDraw(source, w, h, PHOTO_SIZE, true);
+  const sprite = quantize(squareDraw(source, w, h, SPRITE_SIZE, false, zoom));
+  const photo = squareDraw(source, w, h, PHOTO_SIZE, true, zoom);
 
   return {
     sprite: sprite.toDataURL("image/png"),
@@ -118,6 +136,25 @@ export function processCapture(source: CanvasImageSource): CapturedImages {
   };
 }
 
-export async function processFile(file: File): Promise<CapturedImages> {
-  return processCapture(await loadImage(file));
+/**
+ * Freeze the current video frame at its native resolution.
+ *
+ * The shutter keeps the whole frame rather than the zoomed crop, so the framing
+ * can still be adjusted after the fact without asking someone to stand there
+ * and pose again. The crop is applied when the sprite is drawn, not here.
+ */
+export function grabFrame(video: HTMLVideoElement): HTMLCanvasElement {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) throw new Error("Nothing to capture yet");
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d")!.drawImage(video, 0, 0);
+  return canvas;
+}
+
+export async function processFile(file: File, zoom = 1): Promise<CapturedImages> {
+  return processCapture(await loadImage(file), zoom);
 }

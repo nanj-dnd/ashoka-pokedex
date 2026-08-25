@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { processCapture, processFile, type CapturedImages } from "@/lib/pixelate";
+import { grabFrame, loadImage, processCapture, type CapturedImages } from "@/lib/pixelate";
 import { api, sfx } from "@/lib/client";
+import { ZoomSlider } from "./Bits";
 import { BLANK_DRAFT, EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
 
 /** Form accent. Rarity is earned later, so there's no rarity colour to borrow. */
@@ -28,10 +29,17 @@ export function Capture({
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /**
+   * The full-resolution frame or uploaded image behind the current shot. Zoom
+   * re-crops from this rather than from the last crop, so framing stays
+   * non-destructive however many times you change your mind.
+   */
+  const sourceRef = useRef<CanvasImageSource | null>(null);
 
   const [live, setLive] = useState(false);
   const [camError, setCamError] = useState("");
   const [shot, setShot] = useState<CapturedImages | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [flash, setFlash] = useState(false);
 
   const [draft, setDraft] = useState<EntryDraft>(BLANK_DRAFT);
@@ -72,7 +80,10 @@ export function Capture({
   function shoot() {
     if (!videoRef.current) return;
     try {
-      setShot(processCapture(videoRef.current));
+      // Keep the whole frame; the zoom is a crop applied on the way out.
+      const frame = grabFrame(videoRef.current);
+      sourceRef.current = frame;
+      setShot(processCapture(frame, zoom));
       setFlash(true);
       sfx.shutter();
       setTimeout(() => setFlash(false), 360);
@@ -85,7 +96,11 @@ export function Capture({
   async function pickFile(file: File | undefined) {
     if (!file) return;
     try {
-      setShot(await processFile(file));
+      const img = await loadImage(file);
+      sourceRef.current = img;
+      // A new picture deserves fresh framing rather than the last one's crop.
+      setZoom(1);
+      setShot(processCapture(img, 1));
       sfx.shutter();
       stopCam();
     } catch (e) {
@@ -93,10 +108,26 @@ export function Capture({
     }
   }
 
+  function clearShot() {
+    sourceRef.current = null;
+    setShot(null);
+    setZoom(1);
+  }
+
+  // Re-crop the shot whenever the zoom moves. Cheap enough to run live on the
+  // slider: it is one 720px draw plus a 160px quantise pass.
+  useEffect(() => {
+    const source = sourceRef.current;
+    if (!source) return;
+    setShot(processCapture(source, zoom));
+    // `shot` is derived from the source, so depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
+
   /* ------------------------------- form -------------------------------- */
 
   function reset() {
-    setShot(null);
+    clearShot();
     setDraft(BLANK_DRAFT);
     setTraitDraft("");
     setError("");
@@ -151,7 +182,14 @@ export function Capture({
           {shot ? (
             <img src={shot.sprite} alt="Captured sprite" />
           ) : (
-            <video ref={videoRef} playsInline muted style={{ display: live ? "block" : "none" }} />
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              // The viewfinder is scaled to match the crop, so what you frame
+              // through the reticle is what the sprite ends up being.
+              style={{ display: live ? "block" : "none", transform: `scale(${zoom})` }}
+            />
           )}
           {!shot && !live ? (
             <div className="empty" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
@@ -164,7 +202,7 @@ export function Capture({
 
         <div className="row" style={{ marginTop: 12 }}>
           {shot ? (
-            <button onClick={() => { sfx.move(); setShot(null); }}>RETAKE</button>
+            <button onClick={() => { sfx.move(); clearShot(); }}>RETAKE</button>
           ) : live ? (
             <button className="primary" onClick={shoot}>◉ SHOOT</button>
           ) : (
@@ -182,9 +220,16 @@ export function Capture({
           onChange={(e) => { void pickFile(e.target.files?.[0]); e.target.value = ""; }}
         />
 
+        {live || shot ? (
+          <div style={{ marginTop: 12 }}>
+            <ZoomSlider value={zoom} onChange={setZoom} ink={INK} />
+          </div>
+        ) : null}
+
         {camError ? <div className="err" style={{ marginTop: 10 }}>{camError}</div> : null}
         <div className="label" style={{ marginTop: 10 }}>
           PHOTOS BECOME A 160×160 SPRITE ON THIS DEVICE. CHECK THEY&apos;RE STILL RECOGNISABLE.
+          {shot ? " ZOOM STILL WORKS — IT RE-CROPS THE SHOT YOU TOOK." : ""}
         </div>
       </div>
 

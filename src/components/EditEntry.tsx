@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, sfx } from "@/lib/client";
-import { processFile, type CapturedImages } from "@/lib/pixelate";
+import { loadImage, processCapture, type CapturedImages } from "@/lib/pixelate";
+import { ZoomSlider } from "./Bits";
 import { EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
 import type { Creature } from "@/lib/types";
 
@@ -23,6 +24,8 @@ export function EditEntry({
   onClose: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  /** The replacement image at full resolution, so zoom can re-crop it freely. */
+  const sourceRef = useRef<CanvasImageSource | null>(null);
 
   const [draft, setDraft] = useState<EntryDraft>({
     name: creature.name,
@@ -37,6 +40,7 @@ export function EditEntry({
   });
   const [traitDraft, setTraitDraft] = useState("");
   const [shot, setShot] = useState<CapturedImages | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,12 +53,29 @@ export function EditEntry({
   async function pickFile(file: File | undefined) {
     if (!file) return;
     try {
-      setShot(await processFile(file));
+      const img = await loadImage(file);
+      sourceRef.current = img;
+      setZoom(1);
+      setShot(processCapture(img, 1));
       sfx.shutter();
     } catch (e) {
       setError(String((e as Error).message).toUpperCase());
     }
   }
+
+  function keepOld() {
+    sourceRef.current = null;
+    setShot(null);
+    setZoom(1);
+  }
+
+  // Re-crop from the original whenever the zoom moves.
+  useEffect(() => {
+    const source = sourceRef.current;
+    if (!source) return;
+    setShot(processCapture(source, zoom));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom]);
 
   async function save() {
     setError("");
@@ -108,13 +129,19 @@ export function EditEntry({
               <div className="stack" style={{ flex: 1 }}>
                 <button onClick={() => fileRef.current?.click()}>REPLACE PHOTO</button>
                 {shot ? (
-                  <button className="ghost" onClick={() => setShot(null)}>KEEP THE OLD ONE</button>
+                  <button className="ghost" onClick={keepOld}>KEEP THE OLD ONE</button>
                 ) : null}
                 <div className="label">
                   {shot ? "NEW SPRITE — NOT SAVED YET" : "UPLOAD A NEW PHOTO TO RE-SPRITE THIS ENTRY"}
                 </div>
               </div>
             </div>
+            {shot ? (
+              <div style={{ marginTop: 12 }}>
+                <ZoomSlider value={zoom} onChange={setZoom} ink={INK} />
+              </div>
+            ) : null}
+
             <input
               ref={fileRef}
               type="file"

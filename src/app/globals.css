@@ -521,6 +521,14 @@ select { appearance: none; cursor: pointer; }
 .reticle i:nth-child(3) { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
 .reticle i:nth-child(4) { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
 
+/* Zoom control under the viewfinder — the stat-row grid plus a reset button. */
+.zoom-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .flash {
   position: absolute;
   inset: 0;

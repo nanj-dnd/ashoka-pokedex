@@ -100,9 +100,18 @@ Filter by rarity, type, habitat and batch; sort by dex number, most seen, newest
 or A→Z. The grid is walkable with the arrow keys (Enter opens), and once an
 entry is open, ← and → step through the rest of the filtered list.
 
-**Photos** are crushed to a 96×96 colour-quantised sprite in the browser before
+**Photos** are crushed to a 160×160 colour-quantised sprite in the browser before
 upload. The sprite is what the dex shows; the full photo is kept alongside it and
 revealed with `VIEW PHOTO` on the detail card.
+
+**Framing.** A zoom slider under the viewfinder crops into the centre of the
+frame, up to 3× — enough to pull one face out of a group shot. It moves the live
+preview so what you frame is what you get, and it keeps working *after* the
+shutter: the full frame is retained and the crop is applied on the way out, so
+you can re-frame as many times as you like without losing anything or asking
+someone to pose again. The same control appears when an admin replaces a photo
+from the editor. It is digital, not the camera's own zoom, which is why it is
+capped where the stored photo still holds up.
 
 ---
 
