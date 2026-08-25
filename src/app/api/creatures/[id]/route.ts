@@ -3,6 +3,8 @@ import { adminViewer } from "@/lib/auth";
 import { storeError } from "@/lib/apiError";
 import { deleteCreature, getCreature, nextDexNumber, saveCreature } from "@/lib/store";
 import { readCreatureFields, str } from "@/lib/creatureInput";
+import { notifyApproved } from "@/lib/notify";
+import { BASE_RARITY } from "@/lib/constants";
 import type { CreatureStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -38,6 +40,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (!creature) return NextResponse.json({ error: "NOT FOUND" }, { status: 404 });
 
     let touched = false;
+    // Only a first arrival in the dex is worth an email; pulling an entry back
+    // and putting it in again is bookkeeping, not news.
+    let announce = false;
 
     if (body.fields && typeof body.fields === "object") {
       const fields = readCreatureFields(body.fields as Record<string, unknown>);
@@ -67,6 +72,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
           creature.approvedAt = creature.approvedAt ?? new Date().toISOString();
           // Held numbers survive a trip back through the queue.
           creature.dexNumber = creature.dexNumber ?? (await nextDexNumber());
+          announce = !creature.notifiedRarity;
+          creature.notifiedRarity = creature.notifiedRarity ?? BASE_RARITY;
         }
         creature.status = status;
         touched = true;
@@ -77,6 +84,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
     creature.updatedAt = new Date().toISOString();
     await saveCreature(creature);
+    if (announce) await notifyApproved(creature);
     return NextResponse.json({ creature });
   } catch (e) {
     return storeError(e);

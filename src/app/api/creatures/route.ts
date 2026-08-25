@@ -132,6 +132,7 @@ export async function POST(req: Request) {
       createdAt: new Date().toISOString(),
       approvedAt: null,
       updatedAt: null,
+      notifiedRarity: null,
     };
 
     await saveCreature(creature);

@@ -8,6 +8,7 @@ import { Shell } from "./Shell";
 import { DexProgress, SfxToggle } from "./Bits";
 import { CreatureDetail } from "./CreatureDetail";
 import { HallOfFame } from "./HallOfFame";
+import { AlertSettings } from "./AlertSettings";
 import { Nominate } from "./Nominate";
 import type { PublicCreature } from "@/lib/types";
 
@@ -34,6 +35,7 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState(NO_FILTERS);
@@ -165,6 +167,13 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
       actions={
         <>
           <SfxToggle />
+          <button
+            className="ghost"
+            style={{ fontSize: 8, padding: "8px 10px" }}
+            onClick={() => { sfx.move(); setAlertsOpen(true); }}
+          >
+            ALERTS
+          </button>
           {role === "admin" ? (
             <button style={{ fontSize: 8, padding: "8px 10px" }} onClick={() => router.push("/admin")}>
               ADMIN
@@ -324,6 +333,8 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
           )}
         </>
       )}
+
+      {alertsOpen ? <AlertSettings onClose={() => setAlertsOpen(false)} /> : null}
 
       {open ? (
         <CreatureDetail

@@ -1,4 +1,4 @@
-import type { CreatureType, StatKey } from "./constants";
+import type { CreatureType, Rarity, StatKey } from "./constants";
 import type { RarityStanding } from "./rarity";
 
 export type Role = "admin" | "public";
@@ -42,6 +42,12 @@ export interface Creature {
   approvedAt: string | null;
   /** Last admin edit, or null if untouched since capture. */
   updatedAt: string | null;
+  /**
+   * The highest rarity this entry has already been announced at. Rarity is
+   * computed at read time and moves with every sighting, so this is what stops
+   * an entry being re-announced on each recount. Set at approval, then climbs.
+   */
+  notifiedRarity: Rarity | null;
 }
 
 /**
@@ -89,6 +95,10 @@ export interface Account {
   passwordHash: string;
   role: Role;
   createdAt: string;
+  /** Optional, and empty for everyone who signed up before alerts existed. */
+  email: string;
+  /** Kept separate from the address, so unsubscribing doesn't discard it. */
+  alerts: boolean;
 }
 
 /** What the client is allowed to know about the signed-in account. */

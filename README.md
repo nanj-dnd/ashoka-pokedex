@@ -88,6 +88,27 @@ in `src/lib/constants.ts` (`RARITY_LADDER`) and the maths in `src/lib/rarity.ts`
 **Seen tracking** belongs to your account, so your progress follows you between
 your phone and your laptop.
 
+**Email alerts** go out when a new entry clears the queue and when someone
+already in the dex climbs a rarity tier. They are opt-in and off by default:
+an address is optional at sign-up and can be added or removed later under
+**ALERTS**, and nothing is sent to anyone who has not given one. Every message
+carries a one-click unsubscribe link, which needs no session — the signed token
+in it can do nothing except switch that one account's alerts off.
+
+Sending goes through [Resend](https://resend.com) and is entirely optional: with
+`RESEND_API_KEY` or `RESEND_FROM` unset the dex behaves exactly as it did before
+alerts existed, and the settings panel says so rather than promising mail it
+cannot send.
+
+Because rarity is computed from sightings rather than stored, an entry would
+otherwise be re-announced on every recount. `creatures.notified_rarity` records
+the tier an entry has already been announced at, is set when it is approved, and
+only ever climbs — so each tier fires at most one email, ever.
+
+One thing to size before you switch it on: an alert is sent to *everyone* with
+an address, so a dex with 200 subscribers spends 200 sends per event. Resend's
+free tier is 100 emails a day and 3,000 a month.
+
 **The hall of fame** ranks trainers by how much of the dex they have filled in,
 with contributions breaking ties, and ranks entries by how much of campus has
 actually seen them. It is aggregates only: the board says how many entries a
@@ -143,9 +164,10 @@ stops being served there — see the warning at the end of this section.
 - Create a project, then run [`supabase/schema.sql`](supabase/schema.sql),
   [`supabase/002_accounts.sql`](supabase/002_accounts.sql) and
   [`supabase/003_nominations_and_edits.sql`](supabase/003_nominations_and_edits.sql)
+  and [`supabase/004_email_alerts.sql`](supabase/004_email_alerts.sql)
   in the SQL editor, in that order. They create both tables, lock them with
   deny-by-default RLS, and create the public `dex-media` storage bucket.
-  All three are safe to re-run — an existing deployment only needs 003.
+  All of them are safe to re-run — an existing deployment needs 003 and 004.
 - Copy the project URL and the **secret** key from Settings → API Keys →
   Secret keys (`sb_secret_…`; on older projects, the `service_role` JWT).
   Not the publishable/anon key — the app never uses it, and the deny-by-default
@@ -167,6 +189,8 @@ Use a *new* Supabase project, not the dating app's. They share nothing.
 | `SUPABASE_STORAGE_BUCKET` | `dex-media` |
 | `REQUIRED_APPROVALS` | `2` |
 | `NEXT_PUBLIC_SITE_URL` | `https://primafacie.in` |
+| `RESEND_API_KEY` | optional — from resend.com/api-keys, enables email alerts |
+| `RESEND_FROM` | optional — e.g. `Ashoka Pokedex <dex@primafacie.in>`, on a domain verified in Resend |
 
 **4. Move the domain.** Vercel will not let two projects claim the same domain,
 so the order matters:
@@ -231,6 +255,7 @@ src/
       session/            sign up / sign in -> signed cookie
       creatures/          list / create, [id] edit + delete, [id]/vote
       accounts/[id]/      promote, demote, delete an account
+      alerts/             your own email settings, and one-click unsubscribe
       leaderboard/        trainer standings for the hall of fame
       sightings/          per-account seen marks
       upload/             sprite + photo -> storage
@@ -244,6 +269,8 @@ src/
     auth.ts               who is asking, read from the account row every request
     session.ts            code check + cookie signing
     creatureInput.ts      whitelisting for everything a client can set
+    mail.ts               Resend transport — a no-op when unconfigured
+    notify.ts             what an approval and an evolution actually say
     pixelate.ts           photo -> quantised sprite
 supabase/schema.sql
 ```

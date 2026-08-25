@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { grabFrame, loadImage, processCapture, type CapturedImages } from "@/lib/pixelate";
+import { usePinchZoom } from "@/lib/usePinchZoom";
 import { api, sfx } from "@/lib/client";
 import { ZoomSlider } from "./Bits";
 import { BLANK_DRAFT, EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
@@ -27,6 +28,7 @@ export function Capture({
   limitNote?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   /**
@@ -41,6 +43,11 @@ export function Capture({
   const [shot, setShot] = useState<CapturedImages | null>(null);
   const [zoom, setZoom] = useState(1);
   const [flash, setFlash] = useState(false);
+
+  // Pinch the viewfinder itself — same zoom the slider drives.
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  usePinchZoom(stageRef, () => zoomRef.current, setZoom, live || Boolean(shot));
 
   const [draft, setDraft] = useState<EntryDraft>(BLANK_DRAFT);
   const [traitDraft, setTraitDraft] = useState("");
@@ -178,7 +185,7 @@ export function Capture({
       <div className="plate">
         <div className="label" style={{ marginBottom: 10 }}>STEP 1 — CAPTURE</div>
 
-        <div className="cam-stage">
+        <div className="cam-stage" ref={stageRef}>
           {shot ? (
             <img src={shot.sprite} alt="Captured sprite" />
           ) : (
@@ -229,7 +236,8 @@ export function Capture({
         {camError ? <div className="err" style={{ marginTop: 10 }}>{camError}</div> : null}
         <div className="label" style={{ marginTop: 10 }}>
           PHOTOS BECOME A 160×160 SPRITE ON THIS DEVICE. CHECK THEY&apos;RE STILL RECOGNISABLE.
-          {shot ? " ZOOM STILL WORKS — IT RE-CROPS THE SHOT YOU TOOK." : ""}
+          {live || shot ? " PINCH THE VIEWFINDER TO ZOOM." : ""}
+          {shot ? " ZOOM STILL RE-CROPS THE SHOT YOU TOOK." : ""}
         </div>
       </div>
 

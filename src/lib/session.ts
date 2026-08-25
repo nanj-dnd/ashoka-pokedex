@@ -87,6 +87,28 @@ export function roleForCode(code: string): Role | null {
   return null;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Unsubscribe links                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A one-click unsubscribe token. Signed with the same secret as sessions, but
+ * it is not a session: all it can ever do is turn one account's alerts off, so
+ * a leaked link out of someone's inbox costs them nothing but the mail.
+ */
+export function alertToken(accountId: string): string {
+  return `${accountId}.${sign(`alerts:${accountId}`)}`;
+}
+
+export function readAlertToken(token: string | null): string | null {
+  if (!token) return null;
+  const cut = token.lastIndexOf(".");
+  if (cut <= 0) return null;
+  const accountId = token.slice(0, cut);
+  const signature = token.slice(cut + 1);
+  return safeEqual(signature, sign(`alerts:${accountId}`)) ? accountId : null;
+}
+
 export function requiredApprovals(): number {
   const n = Number(process.env.REQUIRED_APPROVALS ?? 2);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2;

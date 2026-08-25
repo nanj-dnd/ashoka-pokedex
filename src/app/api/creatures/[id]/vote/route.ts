@@ -3,6 +3,8 @@ import { adminViewer } from "@/lib/auth";
 import { requiredApprovals } from "@/lib/session";
 import { storeError } from "@/lib/apiError";
 import { getCreature, nextDexNumber, saveCreature } from "@/lib/store";
+import { notifyApproved } from "@/lib/notify";
+import { BASE_RARITY } from "@/lib/constants";
 import type { Vote } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -64,10 +66,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         creature.status = "approved";
         creature.approvedAt = new Date().toISOString();
         creature.dexNumber = creature.dexNumber ?? (await nextDexNumber());
+        // Everyone enters at the base tier; recording it here is what makes a
+        // later climb read as an evolution rather than a first announcement.
+        creature.notifiedRarity = creature.notifiedRarity ?? BASE_RARITY;
       } else {
         creature.status = "rejected";
       }
       await saveCreature(creature);
+      if (approved) await notifyApproved(creature);
       return NextResponse.json({
         creature,
         resolved: approved ? "approved" : "rejected",

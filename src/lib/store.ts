@@ -99,6 +99,7 @@ function toCreature(row: any): Creature {
     createdAt: row.created_at,
     approvedAt: row.approved_at,
     updatedAt: row.updated_at ?? null,
+    notifiedRarity: row.notified_rarity ?? null,
   };
 }
 
@@ -127,6 +128,7 @@ function toRow(c: Creature): Record<string, unknown> {
     created_at: c.createdAt,
     approved_at: c.approvedAt,
     updated_at: c.updatedAt,
+    notified_rarity: c.notifiedRarity,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -264,6 +266,20 @@ export async function seenCounts(): Promise<Record<string, number>> {
   return out;
 }
 
+/** How many trainers have marked one entry seen. Cheaper than the whole map. */
+export async function seenCountFor(creatureId: string): Promise<number> {
+  if (usingSupabase) {
+    const { count, error } = await db()
+      .from("sightings")
+      .select("creature_id", { count: "exact", head: true })
+      .eq("creature_id", creatureId);
+    if (error) throw new Error(`seenCountFor: ${error.message}`);
+    return count ?? 0;
+  }
+  const local = await readLocal();
+  return local.sightings.filter((s) => s.creatureId === creatureId).length;
+}
+
 /** accountId -> how many entries that trainer has marked seen. */
 export async function sightingCountsByAccount(): Promise<Record<string, number>> {
   if (usingSupabase) {
@@ -308,6 +324,10 @@ function toAccount(row: any): Account {
     passwordHash: row.password_hash,
     role: row.role,
     createdAt: row.created_at,
+    email: row.email ?? "",
+    // Accounts predating alerts default to on, which is harmless: with no
+    // address on file they are unreachable until they add one.
+    alerts: row.alerts !== false,
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -348,11 +368,19 @@ export async function createAccount(account: Account): Promise<Account> {
         password_hash: account.passwordHash,
         role: account.role,
         created_at: account.createdAt,
+        email: account.email || null,
+        alerts: account.alerts,
       })
       .select()
       .single();
     // 23505 = unique violation, i.e. the username was taken between check and insert.
-    if (error) throw new Error(error.code === "23505" ? "USERNAME TAKEN" : `createAccount: ${error.message}`);
+    if (error) {
+      // 23505 is a unique violation — either the username or the email raced us.
+      if (error.code === "23505") {
+        throw new Error(error.message.includes("email") ? "EMAIL ALREADY IN USE" : "USERNAME TAKEN");
+      }
+      throw new Error(`createAccount: ${error.message}`);
+    }
     return toAccount(data);
   }
   const local = await readLocal();
@@ -375,6 +403,38 @@ export async function listAccounts(): Promise<Account[]> {
   }
   const local = await readLocal();
   return [...local.accounts].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+/** Set an account's alert address and/or whether it wants mail at all. */
+export async function updateAccountAlerts(
+  id: string,
+  patch: { email?: string; alerts?: boolean },
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.email !== undefined) row.email = patch.email || null;
+  if (patch.alerts !== undefined) row.alerts = patch.alerts;
+  if (!Object.keys(row).length) return;
+
+  if (usingSupabase) {
+    const { error } = await db().from("accounts").update(row).eq("id", id);
+    if (error) {
+      if (error.code === "23505") throw new Error("EMAIL ALREADY IN USE");
+      throw new Error(`updateAccountAlerts: ${error.message}`);
+    }
+    return;
+  }
+  const local = await readLocal();
+  const account = local.accounts.find((a) => a.id === id);
+  if (!account) return;
+  if (patch.email !== undefined) {
+    const key = patch.email.toLowerCase();
+    if (key && local.accounts.some((a) => a.id !== id && a.email.toLowerCase() === key)) {
+      throw new Error("EMAIL ALREADY IN USE");
+    }
+    account.email = patch.email;
+  }
+  if (patch.alerts !== undefined) account.alerts = patch.alerts;
+  await writeLocal(local);
 }
 
 export async function updateAccountRole(id: string, role: Role): Promise<void> {

@@ -10,6 +10,7 @@ import { Capture } from "./Capture";
 import { AdminArchive } from "./AdminArchive";
 import { AdminTrainers } from "./AdminTrainers";
 import { EditEntry } from "./EditEntry";
+import { AlertSettings } from "./AlertSettings";
 import type { Creature, CreatureStatus } from "@/lib/types";
 
 type Tab = "capture" | "queue" | "archive" | "trainers";
@@ -30,6 +31,7 @@ export function AdminView({
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Creature | null>(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   // One fetch covers both the queue and the archive.
   const load = useCallback(async () => {
@@ -134,6 +136,13 @@ export function AdminView({
       actions={
         <>
           <SfxToggle />
+          <button
+            className="ghost"
+            style={{ fontSize: 8, padding: "8px 10px" }}
+            onClick={() => { sfx.move(); setAlertsOpen(true); }}
+          >
+            ALERTS
+          </button>
           <button style={{ fontSize: 8, padding: "8px 10px" }} onClick={() => router.push("/dex")}>
             VIEW DEX
           </button>
@@ -284,6 +293,8 @@ export function AdminView({
           })}
         </div>
       )}
+
+      {alertsOpen ? <AlertSettings onClose={() => setAlertsOpen(false)} /> : null}
 
       {editing ? (
         <EditEntry

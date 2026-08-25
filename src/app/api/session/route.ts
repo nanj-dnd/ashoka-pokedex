@@ -10,6 +10,7 @@ import {
   verifyPassword,
 } from "@/lib/password";
 import { storeError } from "@/lib/apiError";
+import { isValidEmail, normaliseEmail } from "@/lib/mail";
 import type { Account } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
   const rawUsername = typeof body.username === "string" ? body.username : "";
   const password = typeof body.password === "string" ? body.password : "";
   const username = normaliseUsername(rawUsername);
+  // Optional at sign-up. It exists only to send dex alerts, so no address
+  // means no mail rather than a blocked account.
+  const email = normaliseEmail(body.email);
 
   try {
     if (action === "signup") {
@@ -63,6 +67,10 @@ export async function POST(req: Request) {
 
       const problem = validateCredentials(username, password);
       if (problem) return NextResponse.json({ error: problem.message }, { status: 400 });
+
+      if (email && !isValidEmail(email)) {
+        return NextResponse.json({ error: "THAT EMAIL DOES NOT LOOK RIGHT" }, { status: 400 });
+      }
 
       if (await findAccountByUsername(username)) {
         return NextResponse.json({ error: "USERNAME TAKEN" }, { status: 409 });
@@ -74,6 +82,8 @@ export async function POST(req: Request) {
         passwordHash: hashPassword(password),
         role,
         createdAt: new Date().toISOString(),
+        email,
+        alerts: true,
       };
       return withSession(await createAccount(account));
     }
@@ -91,8 +101,8 @@ export async function POST(req: Request) {
     return withSession(account);
   } catch (e) {
     const msg = String((e as Error).message);
-    if (msg === "USERNAME TAKEN") {
-      return NextResponse.json({ error: "USERNAME TAKEN" }, { status: 409 });
+    if (msg === "USERNAME TAKEN" || msg === "EMAIL ALREADY IN USE") {
+      return NextResponse.json({ error: msg }, { status: 409 });
     }
     return storeError(e);
   }

@@ -13,6 +13,7 @@ export function Gate() {
   const [mode, setMode] = useState<Mode>("signin");
   const [code, setCode] = useState("");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export function Gate() {
     try {
       const res = await api<{ account: { role: "admin" | "public" } }>("/api/session", {
         method: "POST",
-        body: JSON.stringify({ action: mode, code, username, password }),
+        body: JSON.stringify({ action: mode, code, username, password, email }),
       });
       sfx.good();
       router.replace(res.account.role === "admin" ? "/admin" : "/dex");
@@ -116,17 +117,35 @@ export function Gate() {
           </div>
 
           {mode === "signup" ? (
-            <div>
-              <div className="label" style={{ marginBottom: 6 }}>CONFIRM PASSWORD</div>
-              <input
-                type="password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                onKeyDown={onEnter}
-                autoComplete="new-password"
-                placeholder="••••••••"
-              />
-            </div>
+            <>
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>CONFIRM PASSWORD</div>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  onKeyDown={onEnter}
+                  autoComplete="new-password"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div>
+                <div className="label" style={{ marginBottom: 6 }}>EMAIL — OPTIONAL</div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={onEnter}
+                  autoComplete="email"
+                  placeholder="you@ashoka.edu.in"
+                  maxLength={200}
+                />
+                <div className="label" style={{ marginTop: 6 }}>
+                  ONLY FOR NEW ENTRIES AND EVOLUTIONS. LEAVE IT BLANK FOR NO MAIL.
+                </div>
+              </div>
+            </>
           ) : null}
 
           {error ? <div className="err shake">{error}</div> : null}
