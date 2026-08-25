@@ -218,11 +218,16 @@ export function Capture({
           <button onClick={() => fileRef.current?.click()}>UPLOAD</button>
         </div>
 
+        {/*
+          No `capture` attribute, deliberately. On a phone it forces the camera
+          open and hides the photo library entirely, which makes this button a
+          worse duplicate of OPEN CAMERA. Without it, iOS and Android offer the
+          library alongside the camera, which is the whole point of UPLOAD.
+        */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           style={{ display: "none" }}
           onChange={(e) => { void pickFile(e.target.files?.[0]); e.target.value = ""; }}
         />

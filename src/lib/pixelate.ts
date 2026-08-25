@@ -2,6 +2,24 @@
 
 import { PHOTO_SIZE, SPRITE_LEVELS, SPRITE_SATURATION, SPRITE_SIZE } from "./constants";
 
+/**
+ * Why a picture would not decode, in terms the person who picked it can act on.
+ *
+ * iPhones shoot HEIC. iOS normally converts on upload and Safari can decode it
+ * anyway, but a HEIC picked up on a desktop browser fails — and "could not read
+ * that image" tells nobody what to do about it.
+ */
+function unreadable(src: Blob | string): Error {
+  const file = src as File;
+  const name = typeof file?.name === "string" ? file.name : "";
+  const heic = /hei[cf]/i.test(file?.type ?? "") || /\.hei[cf]$/i.test(name);
+  return new Error(
+    heic
+      ? "That is a HEIC photo and this browser cannot read it — send it from your phone, or save it as JPEG first"
+      : "Could not read that image",
+  );
+}
+
 /** Load any blob/file into a decoded bitmap we can draw. */
 export async function loadImage(src: Blob | string): Promise<HTMLImageElement> {
   const url = typeof src === "string" ? src : URL.createObjectURL(src);
@@ -10,7 +28,7 @@ export async function loadImage(src: Blob | string): Promise<HTMLImageElement> {
     img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new Error("Could not read that image"));
+      img.onerror = () => reject(unreadable(src));
       img.src = url;
     });
     return img;
