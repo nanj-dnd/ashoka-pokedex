@@ -154,10 +154,14 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
     router.refresh();
   }
 
+  // Everyone gets NOMINATE, admins included. Hiding it from admins on the
+  // grounds that they have NEW CATCH in the terminal meant that anyone whose
+  // account turned out to be an admin — including by a code misconfiguration —
+  // had no way to add someone from the dex at all, and no clue why.
   const tabs: { key: Tab; label: string }[] = [
     { key: "dex", label: "DEX" },
     { key: "hall", label: "HALL OF FAME" },
-    ...(role === "public" ? [{ key: "nominate" as Tab, label: "NOMINATE" }] : []),
+    { key: "nominate", label: "NOMINATE" },
   ];
 
   return (

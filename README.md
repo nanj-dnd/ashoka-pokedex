@@ -17,6 +17,11 @@ it is the invitation that lets you *create* an account, and it decides what kind
 | `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen, nominate people into the queue |
 | `ADMIN_CODE` | Admin | Everything above, plus capture entries, vote on the queue, edit anything, and manage accounts |
 
+The two codes **must be different**. The admin code is tested first, so setting
+both to the same value quietly makes every sign-up an admin; the server logs a
+warning saying so. If you are unsure which one an account got, the dex header
+says `ADMIN · NAME` or `TRAINER · NAME`.
+
 After sign-up you only ever need your username and password; the code is never
 asked for again. Usernames are case-insensitive. Passwords are hashed with
 scrypt from the Node standard library (`src/lib/password.ts`) — never stored in
@@ -31,8 +36,10 @@ Admins pick a **handle** when they enter (e.g. `ANSHUL`). It signs their votes.
 **The approval loop**
 
 1. Someone photographs a person and fills in their entry → status `pending`.
-   Admins do this from the admin terminal; trainers do it from the **NOMINATE**
-   tab in the dex. Both land in the same queue and face the same bar.
+   Trainers do this from the **NOMINATE** tab in the dex, admins from the admin
+   terminal — though admins get the NOMINATE tab too, since needing to walk over
+   to the terminal to add someone you just met is silly. Every route into the
+   queue faces the same bar.
 2. Every *other* admin sees it in the approval queue. You cannot vote on your own catch.
 3. Once **2 different admins** approve, it's assigned the next dex number and
    appears in the public dex. 2 rejections kill it instead.

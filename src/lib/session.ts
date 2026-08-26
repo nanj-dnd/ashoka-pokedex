@@ -74,10 +74,25 @@ export async function requireRole(role: Role): Promise<SessionPayload | null> {
  * There are deliberately NO fallback values here. This repo is public, so a
  * hardcoded default would just be the door code published on the internet.
  */
+let warnedAboutCodes = false;
+
 export function roleForCode(code: string): Role | null {
   const adminCode = process.env.ADMIN_CODE?.trim();
   const publicCode = process.env.PUBLIC_CODE?.trim();
   if (!adminCode && !publicCode) return null;
+
+  // Setting both to the same value makes every single sign-up an admin, because
+  // the admin test below runs first. That is a miserable thing to discover from
+  // behaviour, so say it out loud in the server log the first time it matters.
+  if (adminCode && adminCode === publicCode && !warnedAboutCodes) {
+    warnedAboutCodes = true;
+    console.error(
+      "ADMIN_CODE and PUBLIC_CODE are set to the same value. Every account " +
+        "created with it becomes an ADMIN, able to approve entries and manage " +
+        "accounts. Set PUBLIC_CODE to a different code for trainers.",
+    );
+  }
+
   const trimmed = code.trim();
   const pad = (v: string) => v.padEnd(32, "\0").slice(0, 32);
   const isAdmin = Boolean(adminCode) && safeEqual(pad(trimmed), pad(adminCode!));
