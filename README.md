@@ -161,6 +161,26 @@ set up Supabase.
 
 ---
 
+## The design kit
+
+The 8-bit look is extracted as a standalone, dependency-free stylesheet so
+other people can build their own dex without forking the whole app.
+
+- **Live showcase:** [primafacie.in/kit](https://primafacie.in/kit) — every
+  component with copy-paste markup
+- **The file:** [`public/kit/pokedex.css`](public/kit/pokedex.css) — ~780 lines,
+  no build step, no framework. `<link>` it and write plain HTML.
+
+Recolour the whole thing by overriding the variables in `:root`. `--px` (4px) is
+the offset every frame is built from; raise it and the entire UI gets chunkier.
+
+The one rule the kit exists to enforce: **no blur, ever.** No `border-radius`,
+no soft shadows, no gradients on small elements, no antialiased text. Depth is
+hard 4px offsets in flat black. The moment something blurs it stops reading as a
+handheld and starts reading as a web app.
+
+---
+
 ## Deploy to primafacie.in
 
 The Pokedex **takes over the apex domain**. The existing Prima Facie dating app

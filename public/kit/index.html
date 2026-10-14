@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokedex UI Kit</title>
+<meta name="description" content="The 8-bit design system behind the Ashoka Pokedex. One CSS file, no build step, no dependencies.">
+<meta property="og:title" content="Pokedex UI Kit">
+<meta property="og:description" content="An 8-bit design system in one CSS file. No build step, no dependencies. Build your own dex.">
+<meta property="og:type" content="website">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<!-- Absolute, not relative: this page is also served at /kit with no trailing
+     slash, where a relative href would resolve to /pokedex.css and 404. -->
+<link rel="stylesheet" href="/kit/pokedex.css">
+<style>
+  /* ---- PAGE CHROME ONLY — not part of the kit ---- */
+  .doc { max-width: 980px; margin: 0 auto; padding: 0 16px 80px; }
+  .hero { padding: 48px 0 28px; }
+  .hero h1 { font-size: 26px; line-height: 1.5; }
+  section { margin-top: 56px; }
+  section > h2 { color: var(--amber); margin-bottom: 6px; }
+  .lede { max-width: 62ch; margin-top: 10px; }
+  .demo { padding: 22px; margin-top: 16px; background: var(--screen-2);
+          box-shadow: 0 4px 0 0 var(--edge), 0 -4px 0 0 var(--edge),
+                      4px 0 0 0 var(--edge), -4px 0 0 0 var(--edge); }
+  pre { position: relative; margin: 16px 0 0; padding: 16px 16px 14px;
+        background: #05080c; color: #9fd4ff; overflow-x: auto;
+        font-family: var(--font-terminal), monospace; font-size: 17px;
+        line-height: 1.45; box-shadow: inset 0 0 0 2px #16202c; }
+  pre .t { color: #ff8a7a; } pre .a { color: #ffcb05; } pre .v { color: #6ee36e; }
+  .copy { position: absolute; top: 8px; right: 8px; font-size: 8px; padding: 6px 8px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+  .sw i { display: block; height: 46px; box-shadow: inset 0 0 0 2px var(--edge); }
+  .sw span { display: block; margin-top: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  code { font-family: var(--font-terminal), monospace; font-size: 17px; color: var(--amber); }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } .hero h1 { font-size: 18px; } }
+  footer { margin-top: 72px; padding-top: 24px; box-shadow: inset 0 2px 0 0 #16202c; }
+  a { color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="crt-grain"></div>
+
+<div class="doc">
+
+  <div class="hero">
+    <h1 class="f-pixel">POKEDEX<br>UI KIT</h1>
+    <p class="body-text lede" style="margin-top:18px">
+      The 8-bit design system behind the <a href="/">Ashoka Pokedex</a> — a dex of
+      real people built by and for a university campus. One CSS file, no build
+      step, no dependencies, no framework. Write plain HTML and it looks like a
+      1996 handheld.
+    </p>
+    <div class="chip-row" style="margin-top:18px">
+      <span class="chip" style="--chip-color:#6ee36e">MIT LICENSED</span>
+      <span class="chip" style="--chip-color:#35d6e6">ONE FILE</span>
+      <span class="chip" style="--chip-color:#ffcb05">~780 LINES</span>
+      <span class="chip" style="--chip-color:#c084fc">ZERO DEPS</span>
+    </div>
+  </div>
+
+  <section id="install">
+    <h2>01 — INSTALL</h2>
+    <p class="body-text lede">Download the file, drop it in, start writing markup. That is the whole setup.</p>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">link</span> <span class="a">rel</span>=<span class="v">"stylesheet"</span> <span class="a">href</span>=<span class="v">"pokedex.css"</span>&gt;</pre>
+    <p class="body-text" style="margin-top:14px">
+      <a href="/kit/pokedex.css" download>↓ pokedex.css</a>
+    </p>
+  </section>
+
+  <section id="rule">
+    <h2>02 — THE ONE RULE</h2>
+    <p class="body-text lede">
+      <strong class="amber">No blur. Ever.</strong> No <code>border-radius</code>, no soft
+      shadows, no gradients on small elements, no antialiased text. Depth comes
+      from hard 4px offsets in flat black. The moment something blurs it stops
+      reading as a handheld and starts reading as a web app. Every other
+      decision here follows from that one.
+    </p>
+    <div class="demo two">
+      <div>
+        <div class="label" style="margin-bottom:8px">RIGHT — HARD EDGES</div>
+        <div class="px-frame" style="padding:18px"><span class="body-text">4px offset, flat black</span></div>
+      </div>
+      <div>
+        <div class="label" style="margin-bottom:8px">WRONG — BLURRED</div>
+        <div style="padding:18px;background:var(--screen-2);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.6)">
+          <span class="body-text dim">rounded + soft shadow</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tokens">
+    <h2>03 — TOKENS</h2>
+    <p class="body-text lede">Override these in your own <code>:root</code> and the entire kit recolours. Nothing is hardcoded downstream.</p>
+    <div class="demo">
+      <div class="swatches">
+        <div class="sw"><i style="background:#cf3a30"></i><span class="label">--red</span></div>
+        <div class="sw"><i style="background:#7e1c16"></i><span class="label">--red-dark</span></div>
+        <div class="sw"><i style="background:#0b0f14"></i><span class="label">--screen</span></div>
+        <div class="sw"><i style="background:#121a24"></i><span class="label">--screen-2</span></div>
+        <div class="sw"><i style="background:#dbe6f5"></i><span class="label">--ink</span></div>
+        <div class="sw"><i style="background:#6f8199"></i><span class="label">--ink-dim</span></div>
+        <div class="sw"><i style="background:#ffcb05"></i><span class="label">--amber</span></div>
+        <div class="sw"><i style="background:#35d6e6"></i><span class="label">--cyan</span></div>
+        <div class="sw"><i style="background:#6ee36e"></i><span class="label">--lime</span></div>
+        <div class="sw"><i style="background:#ff5a5a"></i><span class="label">--danger</span></div>
+      </div>
+      <p class="body-text dim" style="margin-top:16px">
+        <code>--px: 4px</code> is the offset every frame is built from, and
+        <code>--edge: #05080c</code> is the flat black it is drawn in. Change
+        <code>--px</code> to 6px and the whole UI gets chunkier.
+      </p>
+    </div>
+  </section>
+
+  <section id="shell">
+    <h2>04 — THE DEVICE SHELL</h2>
+    <p class="body-text lede">
+      The red handheld the whole app lives inside: lens, three lamps, screen,
+      d-pad and speaker grille. Put anything in <code>.screen</code>.
+    </p>
+    <div class="demo" style="padding:0;background:none;box-shadow:none">
+      <div class="dex-wrap">
+        <div class="dex">
+          <div class="dex-hardware">
+            <div class="lens"></div>
+            <div class="lamps"><i class="lamp red"></i><i class="lamp yellow"></i><i class="lamp green"></i></div>
+            <div class="dex-title">
+              <h1>YOUR DEX</h1>
+              <div class="label" style="margin-top:6px;color:rgba(255,255,255,.75)">RESTRICTED DEVICE</div>
+            </div>
+          </div>
+          <div class="screen" style="min-height:auto">
+            <div class="label">SCREEN — ANYTHING GOES HERE</div>
+            <p class="body-text" style="margin-top:10px">Scanlines and the grid come free.</p>
+            <div class="chip-row" style="margin-top:14px">
+              <span class="chip" style="--chip-color:#35d6e6">ANY</span>
+              <span class="chip" style="--chip-color:#6ee36e">CONTENT</span>
+            </div>
+          </div>
+          <div class="dex-footer">
+            <div class="dpad"><i class="gap"></i><i></i><i class="gap"></i><i></i><i class="mid"></i><i></i><i class="gap"></i><i></i><i class="gap"></i></div>
+            <div class="grille"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"dex-wrap"</span>&gt;&lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"dex"</span>&gt;
+  &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"dex-hardware"</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"lens"</span>&gt;&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"lamps"</span>&gt;&lt;<span class="t">i</span> <span class="a">class</span>=<span class="v">"lamp red"</span>&gt;&lt;/<span class="t">i</span>&gt;&lt;<span class="t">i</span> <span class="a">class</span>=<span class="v">"lamp yellow"</span>&gt;&lt;/<span class="t">i</span>&gt;&lt;<span class="t">i</span> <span class="a">class</span>=<span class="v">"lamp green"</span>&gt;&lt;/<span class="t">i</span>&gt;&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"dex-title"</span>&gt;&lt;<span class="t">h1</span>&gt;YOUR DEX&lt;/<span class="t">h1</span>&gt;&lt;/<span class="t">div</span>&gt;
+  &lt;/<span class="t">div</span>&gt;
+  &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"screen"</span>&gt; ... your content ... &lt;/<span class="t">div</span>&gt;
+  &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"dex-footer"</span>&gt; ... dpad + grille ... &lt;/<span class="t">div</span>&gt;
+&lt;/<span class="t">div</span>&gt;&lt;/<span class="t">div</span>&gt;</pre>
+  </section>
+
+  <section id="controls">
+    <h2>05 — BUTTONS &amp; INPUTS</h2>
+    <div class="demo">
+      <div class="row" style="flex-wrap:wrap;gap:10px">
+        <button class="primary">▶ PRIMARY</button>
+        <button>SECONDARY</button>
+        <button class="ghost">GHOST</button>
+        <button disabled>DISABLED</button>
+      </div>
+      <div style="margin-top:20px">
+        <div class="label" style="margin-bottom:6px">TEXT INPUT</div>
+        <input placeholder="WHO IS THIS">
+      </div>
+      <div style="margin-top:14px">
+        <div class="label" style="margin-bottom:6px">CODE INPUT</div>
+        <input class="code-input" placeholder="----" inputmode="numeric">
+      </div>
+      <div style="margin-top:14px">
+        <div class="label" style="margin-bottom:6px">SELECT</div>
+        <select><option>AC-01</option><option>RH-07</option><option>THE MESS</option></select>
+      </div>
+    </div>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">button</span> <span class="a">class</span>=<span class="v">"primary"</span>&gt;▶ PRIMARY&lt;/<span class="t">button</span>&gt;
+&lt;<span class="t">button</span>&gt;SECONDARY&lt;/<span class="t">button</span>&gt;
+&lt;<span class="t">button</span> <span class="a">class</span>=<span class="v">"ghost"</span>&gt;GHOST&lt;/<span class="t">button</span>&gt;
+&lt;<span class="t">input</span> <span class="a">placeholder</span>=<span class="v">"WHO IS THIS"</span>&gt;
+&lt;<span class="t">input</span> <span class="a">class</span>=<span class="v">"code-input"</span> <span class="a">placeholder</span>=<span class="v">"----"</span>&gt;</pre>
+  </section>
+
+  <section id="chips">
+    <h2>06 — CHIPS &amp; RARITY</h2>
+    <p class="body-text lede">
+      Chips take their colour from <code>--chip-color</code>, so one class covers
+      every category you will ever invent. Rarity badges take
+      <code>--rar-ink</code> and <code>--rar-glow</code>.
+    </p>
+    <div class="demo">
+      <div class="chip-row">
+        <span class="chip" style="--chip-color:#f59e0b">ORATOR</span>
+        <span class="chip" style="--chip-color:#e879f9">VISIONARY</span>
+        <span class="chip" style="--chip-color:#dc2626">MENACE</span>
+        <span class="chip outline" style="--chip-color:#35d6e6">OUTLINE</span>
+      </div>
+      <div class="chip-row" style="margin-top:18px">
+        <span class="rarity" style="--rar-ink:#8b9bb4;--rar-glow:rgba(139,155,180,.45)">UNCOMMON</span>
+        <span class="rarity" style="--rar-ink:#38bdf8;--rar-glow:rgba(56,189,248,.5)">RARE</span>
+        <span class="rarity" style="--rar-ink:#c084fc;--rar-glow:rgba(192,132,252,.55)">EPIC</span>
+        <span class="rarity" style="--rar-ink:#fbbf24;--rar-glow:rgba(251,191,36,.6)">LEGENDARY</span>
+        <span class="rarity mythic" style="--rar-ink:#fb7185;--rar-glow:rgba(251,113,133,.65)">MYTHIC</span>
+      </div>
+    </div>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">span</span> <span class="a">class</span>=<span class="v">"chip"</span> <span class="a">style</span>=<span class="v">"--chip-color:#f59e0b"</span>&gt;ORATOR&lt;/<span class="t">span</span>&gt;
+&lt;<span class="t">span</span> <span class="a">class</span>=<span class="v">"rarity mythic"</span> <span class="a">style</span>=<span class="v">"--rar-ink:#fb7185;--rar-glow:rgba(251,113,133,.65)"</span>&gt;MYTHIC&lt;/<span class="t">span</span>&gt;</pre>
+  </section>
+
+  <section id="stats">
+    <h2>07 — STAT BARS &amp; PROGRESS</h2>
+    <div class="demo">
+      <div class="stat-row"><span class="stat-name">PRESENCE</span><div class="bar"><div class="bar-fill" style="width:78%;--bar-c:#35d6e6"></div></div><span class="stat-val">78</span></div>
+      <div class="stat-row"><span class="stat-name">CHARM</span><div class="bar"><div class="bar-fill" style="width:54%;--bar-c:#35d6e6"></div></div><span class="stat-val">54</span></div>
+      <div class="stat-row"><span class="stat-name">VOLATILITY</span><div class="bar"><div class="bar-fill" style="width:91%;--bar-c:#ff5a5a"></div></div><span class="stat-val">91</span></div>
+      <div style="margin-top:20px">
+        <div class="label" style="margin-bottom:8px">APPROVAL PIPS — 1 OF 2</div>
+        <div class="pips"><i class="pip on"></i><i class="pip"></i></div>
+      </div>
+    </div>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"stat-row"</span>&gt;
+  &lt;<span class="t">span</span> <span class="a">class</span>=<span class="v">"stat-name"</span>&gt;PRESENCE&lt;/<span class="t">span</span>&gt;
+  &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"bar"</span>&gt;&lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"bar-fill"</span> <span class="a">style</span>=<span class="v">"width:78%;--bar-c:#35d6e6"</span>&gt;&lt;/<span class="t">div</span>&gt;&lt;/<span class="t">div</span>&gt;
+  &lt;<span class="t">span</span> <span class="a">class</span>=<span class="v">"stat-val"</span>&gt;78&lt;/<span class="t">span</span>&gt;
+&lt;/<span class="t">div</span>&gt;</pre>
+  </section>
+
+  <section id="grid">
+    <h2>08 — THE DEX GRID</h2>
+    <p class="body-text lede">
+      Slots are the heart of it. An unseen entry is a silhouette; marking it
+      seen reveals the sprite. Swap the inline SVG for your own image.
+    </p>
+    <div class="demo">
+      <div class="grid">
+        <div class="slot seen">
+          <div class="slot-num">No.001</div>
+          <div class="slot-sprite"><svg viewBox="0 0 16 16" width="100%" shape-rendering="crispEdges"><rect x="3" y="1" width="2" height="2" fill="#38bdf8"/><rect x="11" y="1" width="2" height="2" fill="#38bdf8"/><rect x="2" y="3" width="12" height="10" fill="#38bdf8"/><rect x="4" y="6" width="2" height="3" fill="#0b0f14"/><rect x="10" y="6" width="2" height="3" fill="#0b0f14"/></svg></div>
+          <div class="slot-name">SHUBHINDER</div>
+          <span class="rarity" style="--rar-ink:#38bdf8;--rar-glow:rgba(56,189,248,.5)">RARE</span>
+          <i class="seen-tick">✓</i>
+        </div>
+        <div class="slot seen">
+          <div class="slot-num">No.002</div>
+          <div class="slot-sprite"><svg viewBox="0 0 16 16" width="100%" shape-rendering="crispEdges"><rect x="3" y="1" width="2" height="2" fill="#fbbf24"/><rect x="11" y="1" width="2" height="2" fill="#fbbf24"/><rect x="2" y="3" width="12" height="10" fill="#fbbf24"/><rect x="4" y="6" width="2" height="3" fill="#0b0f14"/><rect x="10" y="6" width="2" height="3" fill="#0b0f14"/></svg></div>
+          <div class="slot-name">KRRISH</div>
+          <span class="rarity" style="--rar-ink:#fbbf24;--rar-glow:rgba(251,191,36,.6)">LEGENDARY</span>
+          <i class="seen-tick">✓</i>
+        </div>
+        <div class="slot">
+          <div class="slot-num">No.003</div>
+          <div class="slot-sprite"><svg viewBox="0 0 16 16" width="100%" shape-rendering="crispEdges"><rect x="3" y="1" width="2" height="2" fill="#223044"/><rect x="11" y="1" width="2" height="2" fill="#223044"/><rect x="2" y="3" width="12" height="10" fill="#223044"/></svg></div>
+          <div class="slot-name">???</div>
+          <span class="label">NOT SEEN</span>
+        </div>
+      </div>
+    </div>
+    <pre><button class="copy" onclick="cp(this)">COPY</button>&lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"grid"</span>&gt;
+  &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"slot seen"</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"slot-num"</span>&gt;No.001&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"slot-sprite"</span>&gt;&lt;<span class="t">img</span> <span class="a">src</span>=<span class="v">"sprite.png"</span>&gt;&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">div</span> <span class="a">class</span>=<span class="v">"slot-name"</span>&gt;SHUBHINDER&lt;/<span class="t">div</span>&gt;
+    &lt;<span class="t">i</span> <span class="a">class</span>=<span class="v">"seen-tick"</span>&gt;✓&lt;/<span class="t">i</span>&gt;
+  &lt;/<span class="t">div</span>&gt;
+&lt;/<span class="t">div</span>&gt;</pre>
+  </section>
+
+  <section id="misc">
+    <h2>09 — TABS, PLATES, ALERTS</h2>
+    <div class="demo">
+      <div class="tabs"><span class="tab on">DEX</span><span class="tab">QUEUE</span><span class="tab">HALL OF FAME</span></div>
+      <div class="plate" style="margin-top:16px">
+        <div class="label" style="margin-bottom:6px">PLATE</div>
+        <p class="body-text">A recessed panel for grouping anything.</p>
+      </div>
+      <div class="err" style="margin-top:14px">WRONG USERNAME OR PASSWORD</div>
+      <div class="ok" style="margin-top:10px">ENTRY APPROVED — DEX #014</div>
+    </div>
+  </section>
+
+  <section id="build">
+    <h2>10 — BUILD YOUR OWN DEX</h2>
+    <p class="body-text lede">
+      The kit is just the look. The whole application behind it — access codes,
+      accounts, photo capture that crushes to a dithered sprite in the browser,
+      a two-admin approval queue, and rarity that is earned from sightings
+      rather than assigned — is open source and built to be forked.
+    </p>
+    <div class="demo">
+      <p class="body-text">
+        <a href="https://github.com/nanj-dnd/ashoka-pokedex">github.com/nanj-dnd/ashoka-pokedex</a>
+      </p>
+      <p class="body-text dim" style="margin-top:10px">
+        Next.js + Supabase, deploys to Vercel. Swap the campus vocabulary in
+        <code>src/lib/constants.ts</code> — types, habitats, stats, rarity
+        thresholds — and it is your institution's dex, not ours.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p class="label">POKEDEX UI KIT · MIT · BUILT FOR THE ASHOKA POKEDEX</p>
+    <p class="body-text dim" style="margin-top:8px">
+      Not affiliated with, endorsed by, or connected to Nintendo, Game Freak or
+      The Pokémon Company. "Pokédex" is their trademark; this is an affectionate
+      homage built by students, and the name is used descriptively.
+    </p>
+  </footer>
+
+</div>
+
+<script>
+function cp(btn){
+  const pre = btn.parentElement.cloneNode(true);
+  pre.querySelector('.copy').remove();
+  navigator.clipboard.writeText(pre.innerText.trim()).then(function(){
+    const old = btn.textContent;
+    btn.textContent = 'COPIED';
+    btn.classList.add('primary');
+    setTimeout(function(){ btn.textContent = old; btn.classList.remove('primary'); }, 1200);
+  });
+}
+</script>
+</body>
+</html>
