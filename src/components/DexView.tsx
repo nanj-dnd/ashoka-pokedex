@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BATCHES, HABITATS, RARITIES, RARITY_STYLE, TYPES, batchLabel } from "@/lib/constants";
+import { useDex } from "@/lib/DexContext";
 import { api, sfx } from "@/lib/client";
 import { Shell } from "./Shell";
 import { DexProgress, SfxToggle } from "./Bits";
@@ -23,10 +23,11 @@ const SORTS = [
 
 type SortKey = (typeof SORTS)[number]["key"];
 
-const NO_FILTERS = { rarity: "", type: "", habitat: "", batch: "" };
+const NO_FILTERS = { rarity: "", type: "", habitat: "", cohort: "" };
 
-export function DexView({ role, username }: { role: "admin" | "public"; username: string }) {
+export function DexView() {
   const router = useRouter();
+  const { slug, name, config, isAdmin, username } = useDex();
   const gridRef = useRef<HTMLDivElement>(null);
 
   const [tab, setTab] = useState<Tab>("dex");
@@ -47,8 +48,8 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
     void (async () => {
       try {
         const [dex, sight] = await Promise.all([
-          api<{ creatures: PublicCreature[] }>("/api/creatures"),
-          api<{ seen: string[] }>("/api/sightings"),
+          api<{ creatures: PublicCreature[] }>(`/api/d/${slug}/creatures`),
+          api<{ seen: string[] }>(`/api/d/${slug}/sightings`),
         ]);
         setCreatures(dex.creatures);
         setSeen(new Set(sight.seen));
@@ -70,7 +71,7 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
       cur.map((x) => (x.id === c.id ? { ...x, seenCount: x.seenCount + (nowSeen ? 1 : -1) } : x)),
     );
     try {
-      await api("/api/sightings", {
+      await api(`/api/d/${slug}/sightings`, {
         method: "POST",
         body: JSON.stringify({ creatureId: c.id, seen: nowSeen }),
       });
@@ -91,9 +92,9 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
     const needle = q.trim().toLowerCase();
     const list = creatures.filter((c) => {
       if (filters.rarity && c.rarity !== filters.rarity) return false;
-      if (filters.type && !c.types.includes(filters.type as never)) return false;
+      if (filters.type && !c.types.includes(filters.type)) return false;
       if (filters.habitat && c.habitat !== filters.habitat) return false;
-      if (filters.batch && c.batch !== filters.batch) return false;
+      if (filters.cohort && c.cohort !== filters.cohort) return false;
       if (onlyUnseen && seen.has(c.id)) return false;
       if (!needle) return true;
       return (
@@ -166,8 +167,8 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
 
   return (
     <Shell
-      title="ASHOKA POKEDEX"
-      subtitle={role === "admin" ? `ADMIN · ${username}` : `TRAINER · ${username}`}
+      title={name}
+      subtitle={`${isAdmin ? "ADMIN" : "MEMBER"} · ${username}`}
       actions={
         <>
           <SfxToggle />
@@ -178,8 +179,8 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
           >
             ALERTS
           </button>
-          {role === "admin" ? (
-            <button style={{ fontSize: 8, padding: "8px 10px" }} onClick={() => router.push("/admin")}>
+          {isAdmin ? (
+            <button style={{ fontSize: 8, padding: "8px 10px" }} onClick={() => router.push(`/d/${slug}/admin`)}>
               ADMIN
             </button>
           ) : null}
@@ -246,7 +247,7 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
                 aria-label="Filter by rarity"
               >
                 <option value="">ALL RARITY</option>
-                {RARITIES.map((r) => <option key={r} value={r}>{r}</option>)}
+                {config.rarities.map((r) => <option key={r.label} value={r.label}>{r.label}</option>)}
               </select>
               <select
                 value={filters.type}
@@ -254,7 +255,7 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
                 aria-label="Filter by type"
               >
                 <option value="">ALL TYPES</option>
-                {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {config.types.map((t) => <option key={t.label} value={t.label}>{t.label}</option>)}
               </select>
               <select
                 value={filters.habitat}
@@ -262,16 +263,18 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
                 aria-label="Filter by habitat"
               >
                 <option value="">ALL HABITATS</option>
-                {HABITATS.map((h) => <option key={h} value={h}>{h}</option>)}
+                {config.habitats.map((h) => <option key={h} value={h}>{h}</option>)}
               </select>
-              <select
-                value={filters.batch}
-                onChange={(e) => setFilters({ ...filters, batch: e.target.value })}
-                aria-label="Filter by batch"
-              >
-                <option value="">ALL BATCHES</option>
-                {BATCHES.map((b) => <option key={b} value={b}>{batchLabel(b)}</option>)}
-              </select>
+              {config.cohortLabel && config.cohortOptions.length ? (
+                <select
+                  value={filters.cohort}
+                  onChange={(e) => setFilters({ ...filters, cohort: e.target.value })}
+                  aria-label={`Filter by ${config.cohortLabel.toLowerCase()}`}
+                >
+                  <option value="">ALL {config.cohortLabel}</option>
+                  {config.cohortOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              ) : null}
               <button
                 className="ghost"
                 style={{ fontSize: 8, flex: "0 0 auto" }}
@@ -303,7 +306,7 @@ export function DexView({ role, username }: { role: "admin" | "public"; username
               <div className="grid" ref={gridRef} onKeyDown={onGridKey}>
                 {shown.map((c) => {
                   const isSeen = seen.has(c.id);
-                  const ink = (RARITY_STYLE[c.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
+                  const ink = c.rarityColor;
                   return (
                     <div
                       key={c.id}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, sfx } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
 import type { TrainerStanding } from "@/lib/types";
 
 /**
@@ -19,6 +20,7 @@ export function AdminTrainers({
   onNote: (msg: string) => void;
   onError: (msg: string) => void;
 }) {
+  const { slug } = useDex();
   const [trainers, setTrainers] = useState<TrainerStanding[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export function AdminTrainers({
   const load = useCallback(async () => {
     try {
       const res = await api<{ trainers: TrainerStanding[]; totalApproved: number }>(
-        "/api/leaderboard",
+        `/api/d/${slug}/leaderboard`,
       );
       setTrainers(res.trainers);
       setTotal(res.totalApproved);
@@ -40,12 +42,12 @@ export function AdminTrainers({
 
   useEffect(() => { void load(); }, [load]);
 
-  async function setRole(t: TrainerStanding, role: "admin" | "public") {
+  async function setRole(t: TrainerStanding, role: "admin" | "member") {
     const verb = role === "admin" ? "Promote" : "Demote";
     if (!confirm(`${verb} ${t.username}?`)) return;
     setBusyId(t.id);
     try {
-      await api(`/api/accounts/${t.id}`, { method: "PATCH", body: JSON.stringify({ role }) });
+      await api(`/api/d/${slug}/members/${t.id}`, { method: "PATCH", body: JSON.stringify({ role }) });
       sfx.good();
       onNote(`${t.username.toUpperCase()} IS NOW ${role === "admin" ? "AN ADMIN" : "A TRAINER"}`);
       await load();
@@ -67,7 +69,7 @@ export function AdminTrainers({
     }
     setBusyId(t.id);
     try {
-      await api(`/api/accounts/${t.id}`, { method: "DELETE" });
+      await api(`/api/d/${slug}/members/${t.id}`, { method: "DELETE" });
       sfx.move();
       onNote(`${t.username.toUpperCase()} DELETED`);
       await load();
@@ -114,7 +116,7 @@ export function AdminTrainers({
                 </span>
               ) : (
                 <>
-                  {t.role === "public" ? (
+                  {t.role === "member" ? (
                     <button
                       className="go"
                       style={{ fontSize: 8 }}
@@ -127,7 +129,7 @@ export function AdminTrainers({
                     <button
                       style={{ fontSize: 8 }}
                       disabled={busyId === t.id}
-                      onClick={() => setRole(t, "public")}
+                      onClick={() => setRole(t, "member")}
                     >
                       MAKE TRAINER
                     </button>

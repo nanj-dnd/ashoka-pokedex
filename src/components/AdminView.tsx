@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BASE_RARITY, RARITY_STYLE, batchLabel } from "@/lib/constants";
+import { useDex } from "@/lib/DexContext";
 import { api, sfx } from "@/lib/client";
 import { Shell } from "./Shell";
 import { Pips, RarityBadge, SfxToggle, TypeChip } from "./Bits";
@@ -25,6 +25,7 @@ export function AdminView({
   needed: number;
 }) {
   const router = useRouter();
+  const { slug, config } = useDex();
   const [tab, setTab] = useState<Tab>("capture");
   const [all, setAll] = useState<Creature[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +38,7 @@ export function AdminView({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api<{ creatures: Creature[] }>("/api/creatures?scope=all");
+      const res = await api<{ creatures: Creature[] }>(`/api/d/${slug}/creatures?scope=all`);
       setAll(res.creatures);
       setError("");
     } catch (e) {
@@ -59,7 +60,7 @@ export function AdminView({
     }
     try {
       const res = await api<{ resolved?: string; forced?: boolean }>(
-        `/api/creatures/${c.id}/vote`,
+        `/api/d/${slug}/creatures/${c.id}/vote`,
         { method: "POST", body: JSON.stringify({ vote: v, force }) },
       );
       if (res.resolved === "approved") {
@@ -88,7 +89,7 @@ export function AdminView({
     };
     if (!confirm(ask[status])) return;
     try {
-      await api(`/api/creatures/${c.id}`, {
+      await api(`/api/d/${slug}/creatures/${c.id}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
@@ -105,7 +106,7 @@ export function AdminView({
   async function remove(c: Creature) {
     if (!confirm(`Delete "${c.name}" permanently? This cannot be undone.`)) return;
     try {
-      await api(`/api/creatures/${c.id}`, { method: "DELETE" });
+      await api(`/api/d/${slug}/creatures/${c.id}`, { method: "DELETE" });
       sfx.move();
       setNote(`${c.name.toUpperCase()} DELETED`);
       setError("");
@@ -198,7 +199,8 @@ export function AdminView({
             const mine = c.votes.find((v) => v.username === username);
             const own = c.submittedBy === username;
             // Pending entries have no sightings yet, so everyone sits at base rarity.
-            const ink = RARITY_STYLE[BASE_RARITY].ink;
+            // Pending entries have no sightings yet, so they sit at the bottom rung.
+            const ink = config.rarities[0].color;
 
             return (
               <div className="plate" key={c.id}>
@@ -209,18 +211,18 @@ export function AdminView({
                     {c.title ? <div className="body-text dim">{c.title}</div> : null}
 
                     <div className="chip-row" style={{ margin: "10px 0" }}>
-                      <RarityBadge rarity={BASE_RARITY} />
+                      <RarityBadge rarity={config.rarities[0].label} />
                       {c.types.map((t) => <TypeChip key={t} type={t} />)}
                     </div>
 
                     <div className="label">
                       BY {c.submittedBy || "UNKNOWN"}
-                      {c.submittedByRole === "public" ? (
+                      {c.submittedByRole === "member" ? (
                         <span className="tag trainer">TRAINER NOMINATION</span>
                       ) : null}
                       {" · "}
                       {c.habitat || "NO HABITAT"}
-                      {c.batch ? ` · ${batchLabel(c.batch)}` : ""}
+                      {c.cohort ? ` · ${c.cohort}` : ""}
                     </div>
 
                     {c.characteristics.length ? (

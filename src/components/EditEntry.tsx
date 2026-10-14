@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, sfx } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
 import { loadImage, processCapture, type CapturedImages } from "@/lib/pixelate";
 import { ZoomSlider } from "./Bits";
 import { EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
@@ -27,12 +28,13 @@ export function EditEntry({
   /** The replacement image at full resolution, so zoom can re-crop it freely. */
   const sourceRef = useRef<CanvasImageSource | null>(null);
 
+  const { slug } = useDex();
   const [draft, setDraft] = useState<EntryDraft>({
     name: creature.name,
     title: creature.title,
     types: creature.types,
     habitat: creature.habitat,
-    batch: creature.batch,
+    cohort: creature.cohort,
     traits: creature.characteristics,
     entry: creature.entry,
     quote: creature.quote,
@@ -94,7 +96,7 @@ export function EditEntry({
         body.photoUrl = uploaded.photoUrl;
       }
 
-      const res = await api<{ creature: Creature }>(`/api/creatures/${creature.id}`, {
+      const res = await api<{ creature: Creature }>(`/api/d/${slug}/creatures/${creature.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       });

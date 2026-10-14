@@ -6,6 +6,6 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const me = await viewerOrNull();
-  if (me) redirect(me.role === "admin" ? "/admin" : "/dex");
+  if (me) redirect("/me");
   return <Gate />;
 }

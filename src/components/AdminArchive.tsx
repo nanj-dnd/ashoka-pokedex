@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { batchLabel } from "@/lib/constants";
 import { sfx } from "@/lib/client";
 import type { Creature, CreatureStatus } from "@/lib/types";
 
@@ -91,9 +90,9 @@ export function AdminArchive({
                 </div>
                 <div className="label" style={{ marginTop: 6 }}>
                   BY {c.submittedBy || "UNKNOWN"}
-                  {c.submittedByRole === "public" ? " (TRAINER)" : ""}
+                  {c.submittedByRole === "member" ? " (TRAINER)" : ""}
                   {c.habitat ? ` · ${c.habitat}` : ""}
-                  {c.batch ? ` · ${batchLabel(c.batch)}` : ""}
+                  {c.cohort ? ` · ${c.cohort}` : ""}
                   {c.updatedAt ? " · EDITED" : ""}
                 </div>
               </div>

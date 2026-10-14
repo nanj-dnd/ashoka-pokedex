@@ -9,157 +9,52 @@ Lives at: **primafacie.in**
 
 ## How it works
 
-Everyone has a **username and password account**. The access code is not a login —
-it is the invitation that lets you *create* an account, and it decides what kind:
+Anyone can sign up and **make their own dex**. An account is global — one
+username and password across the whole deployment — and getting into a
+particular dex happens with that dex's own code.
 
-| Env var | Creates | Can do |
-|---------|---------|--------|
-| `PUBLIC_CODE` | Trainer | Browse the approved dex, open entries, mark who they've seen, nominate people into the queue |
-| `ADMIN_CODE` | Admin | Everything above, plus capture entries, vote on the queue, edit anything, and manage accounts |
+| | |
+|---|---|
+| **owner** | Made the dex. Sets the constraints, holds the codes, can delete it. |
+| **admin** | Captures entries and votes on the approval queue. |
+| **member** | Browses, marks sightings, and nominates if the owner allows it. |
 
-The two codes **must be different**. The admin code is tested first, so setting
-both to the same value quietly makes every sign-up an admin; the server logs a
-warning saying so. If you are unsure which one an account got, the dex header
-says `ADMIN · NAME` or `TRAINER · NAME`.
+Each dex generates two four-digit codes on creation. The member code gets you
+in; entering the admin code promotes you. Codes decide who may *join* — once
+you are in, authority comes from your membership row, so changing a code locks
+out future joiners without touching anyone already inside.
 
-After sign-up you only ever need your username and password; the code is never
-asked for again. Usernames are case-insensitive. Passwords are hashed with
-scrypt from the Node standard library (`src/lib/password.ts`) — never stored in
-plain text, never returned by any endpoint.
+Passwords are hashed with scrypt from the Node standard library
+(`src/lib/password.ts`) — never stored in plain text, never returned by any
+endpoint. Wrong password and unknown username return the same message, so
+usernames cannot be enumerated.
 
-The actual codes live in the environment and are **not in this repo** — it's
-public. There are no fallback values in the source: if the vars are unset, every
-code is refused.
+### Constraints are per dex
 
-Admins pick a **handle** when they enter (e.g. `ANSHUL`). It signs their votes.
+Everything that makes a dex *that community's* dex is owner-editable at
+`/d/<slug>/settings` and stored as JSON on the dex row:
 
-**The approval loop**
+- **types** — personality archetypes, each with a colour and a one-line hint
+- **habitats** — where entries are usually found
+- **stats** — six bars, renamable; the stored key survives a rename
+- **rarity ladder** — tier names, colours, and both thresholds
+- **approvals** — how many distinct admins promote an entry (1–5)
+- **nouns** — what an entry is called, singular and plural
+- an optional **extra field** (batch, team, company) with fixed options or free text
 
-1. Someone photographs a person and fills in their entry → status `pending`.
-   Trainers do this from the **NOMINATE** tab in the dex, admins from the admin
-   terminal — though admins get the NOMINATE tab too, since needing to walk over
-   to the terminal to add someone you just met is silly. Every route into the
-   queue faces the same bar.
-2. Every *other* admin sees it in the approval queue. You cannot vote on your own catch.
-3. Once **2 different admins** approve, it's assigned the next dex number and
-   appears in the public dex. 2 rejections kill it instead.
+Stored config is **never trusted on read**. `src/lib/dexConfig.ts` normalises
+every load: labels are uppercased and de-duplicated, bad colours replaced,
+stats padded to exactly six, the rarity ladder sorted with its bottom rung
+forced to be reachable, and numbers clamped. A malformed row degrades to a
+working dex rather than crashing one.
 
-Change the threshold with `REQUIRED_APPROVALS` in the environment.
+Three presets to start from: **campus** (the original), **event** (conference
+networking, where attendees add themselves) and **blank**.
 
-Trainers may have **3 nominations open at a time** (`MAX_OPEN_NOMINATIONS` in
-`src/lib/constants.ts`) so one bored person can't bury the queue; the cap frees
-up as each one is resolved. The **MY NOMINATIONS** list shows a trainer how far
-each of theirs got — the vote count, never who cast which vote.
-
-**What an admin can do**
-
-- **Vote** on anyone else's submission, as before.
-- **FORCE IN** — resolve a pending entry on one admin's say-so, without waiting
-  for the quorum. It skips the count, not the conflict of interest: you still
-  cannot force in your own catch, because that rule is the only thing keeping
-  the queue honest. Forced votes are recorded as `forced` in the vote history.
-- **Edit any entry**, live or pending, including replacing the photo. Entries
-  are about real people; getting one wrong should be a ten-second fix.
-- **Move an entry between states** from the ARCHIVE tab: pull a live entry back
-  into the queue (votes cleared, dex number held in reserve so re-approval
-  restores the same number), put a pending one straight in, or take one down.
-- **Manage accounts** from the TRAINERS tab: promote a trainer to admin, demote
-  an admin, or delete an account (which takes its sightings with it, and so
-  moves rarity). Never on your own account — locking yourself out of your own
-  terminal is the one mistake nobody else can undo for you.
-
-Role changes take effect **immediately**. The session cookie says which account
-is asking, and every request looks up that account's current role in the
-database, so a demoted admin cannot keep using the terminal on the strength of
-a cookie issued before the demotion, and a deleted account is signed out on its
-next click.
-
-**Rarity is earned, never assigned.** Admins do not pick a rarity. Everyone enters
-the dex as `UNCOMMON` and climbs as more of the campus reports seeing them,
-measured as a share of everyone with an account. So rarity here means notoriety,
-not scarcity.
-
-| Tier | Share of players | Min sightings |
-|------|------------------|---------------|
-| `UNCOMMON` | — | — |
-| `RARE` | 15% | 3 |
-| `EPIC` | 30% | 5 |
-| `LEGENDARY` | 50% | 8 |
-| `MYTHIC` | 75% | 12 |
-
-A tier needs *both* conditions, so the first two people on the platform can't
-crown each other MYTHIC on day one. Thresholds scale as the dex grows: at 10
-players LEGENDARY takes 8 sightings, at 40 players it takes 20. The ladder lives
-in `src/lib/constants.ts` (`RARITY_LADDER`) and the maths in `src/lib/rarity.ts`.
-
-**Seen tracking** belongs to your account, so your progress follows you between
-your phone and your laptop.
-
-**Email alerts** go out when a new entry clears the queue and when someone
-already in the dex climbs a rarity tier. They are opt-in and off by default:
-an address is optional at sign-up and can be added or removed later under
-**ALERTS**, and nothing is sent to anyone who has not given one. Every message
-carries a one-click unsubscribe link, which needs no session — the signed token
-in it can do nothing except switch that one account's alerts off.
-
-Sending goes through [Resend](https://resend.com) and is entirely optional: with
-`RESEND_API_KEY` or `RESEND_FROM` unset the dex behaves exactly as it did before
-alerts existed, and the settings panel says so rather than promising mail it
-cannot send.
-
-Because rarity is computed from sightings rather than stored, an entry would
-otherwise be re-announced on every recount. `creatures.notified_rarity` records
-the tier an entry has already been announced at, is set when it is approved, and
-only ever climbs — so each tier fires at most one email, ever.
-
-One thing to size before you switch it on: an alert is sent to *everyone* with
-an address, so a dex with 200 subscribers spends 200 sends per event. Resend's
-free tier is 100 emails a day and 3,000 a month.
-
-**The hall of fame** ranks trainers by how much of the dex they have filled in,
-with contributions breaking ties, and ranks entries by how much of campus has
-actually seen them. It is aggregates only: the board says how many entries a
-trainer has ticked off, never which ones. Opening a trainer shows their rank,
-completion and the catches of theirs that made it in — entries also carry a
-visible **CAUGHT BY** credit on the detail card.
-
-**Browsing.** Search covers names, titles, habitats, traits and the submitter.
-Filter by rarity, type, habitat and batch; sort by dex number, most seen, newest
-or A→Z. The grid is walkable with the arrow keys (Enter opens), and once an
-entry is open, ← and → step through the rest of the filtered list.
-
-**Photos** are crushed to a 160×160 colour-quantised sprite in the browser before
-upload. The sprite is what the dex shows; the full photo is kept alongside it and
-revealed with `VIEW PHOTO` on the detail card.
-
-**Framing.** A zoom slider under the viewfinder crops into the centre of the
-frame, up to 3× — enough to pull one face out of a group shot. It moves the live
-preview so what you frame is what you get, and it keeps working *after* the
-shutter: the full frame is retained and the crop is applied on the way out, so
-you can re-frame as many times as you like without losing anything or asking
-someone to pose again. The same control appears when an admin replaces a photo
-from the editor. It is digital, not the camera's own zoom, which is why it is
-capped where the stored photo still holds up.
-
----
-
-## Run it locally
-
-```bash
-npm install
-cp .env.local.example .env.local
-# then set ADMIN_CODE and PUBLIC_CODE in .env.local to whatever you want
-npm run dev
-```
-
-Open http://localhost:3000 and enter your admin code.
-
-With `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` blank, the app runs
-on a **local JSON store** at `.data/` (git-ignored) with images on disk. Zero
-infra, good for trying it out. It is single-machine only — for the real thing,
-set up Supabase.
-
----
+**Rarity is earned, never assigned.** Everyone enters at the bottom rung and
+climbs as more of *that dex's* members report seeing them. A tier needs both a
+share of the membership and a floor of raw sightings — without the floor, the
+first two people in a new dex would crown each other immediately.
 
 ## The design kit
 

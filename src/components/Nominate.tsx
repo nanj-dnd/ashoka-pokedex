@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
 import { Capture } from "./Capture";
 import { Pips } from "./Bits";
 import type { MyNomination } from "@/lib/types";
@@ -18,6 +19,7 @@ const STATUS_STYLE: Record<MyNomination["status"], { className: string; text: st
  * your nomination is between the admins.
  */
 export function Nominate() {
+  const { slug } = useDex();
   const [mine, setMine] = useState<MyNomination[]>([]);
   const [limit, setLimit] = useState(3);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export function Nominate() {
   const load = useCallback(async () => {
     try {
       const res = await api<{ nominations: MyNomination[]; openLimit: number }>(
-        "/api/creatures?scope=mine",
+        `/api/d/${slug}/creatures?scope=mine`,
       );
       setMine(res.nominations);
       setLimit(res.openLimit);

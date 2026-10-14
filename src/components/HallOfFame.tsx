@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RARITY_STYLE } from "@/lib/constants";
 import { api, sfx } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
 import { RarityBadge } from "./Bits";
 import type { PublicCreature, TrainerStanding } from "@/lib/types";
 
@@ -28,6 +28,7 @@ export function HallOfFame({
   username: string;
   onOpenCreature: (c: PublicCreature) => void;
 }) {
+  const { slug } = useDex();
   const [trainers, setTrainers] = useState<TrainerStanding[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ export function HallOfFame({
     void (async () => {
       try {
         const res = await api<{ trainers: TrainerStanding[]; totalApproved: number }>(
-          "/api/leaderboard",
+          `/api/d/${slug}/leaderboard`,
         );
         setTrainers(res.trainers);
         setTotal(res.totalApproved);
@@ -71,7 +72,7 @@ export function HallOfFame({
         ) : (
           <div className="board">
             {mostWanted.map((c, i) => {
-              const ink = (RARITY_STYLE[c.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
+              const ink = c.rarityColor;
               return (
                 <div
                   className="board-row"

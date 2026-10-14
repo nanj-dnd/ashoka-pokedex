@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
-import type { Role, SessionPayload } from "./types";
+import type { Dex, MemberRole, SessionPayload } from "./types";
 
 export const SESSION_COOKIE = "dex_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
@@ -10,7 +10,7 @@ function secret(): string {
   if (!s || s.length < 16) {
     // Dev fallback so `npm run dev` works before .env.local exists.
     // Production sets a real SESSION_SECRET.
-    return "ashoka-pokedex-development-only-secret-do-not-ship";
+    return "dex-development-only-secret-do-not-ship";
   }
   return s;
 }
@@ -39,7 +39,6 @@ export function decodeSession(token: string | undefined): SessionPayload | null 
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as SessionPayload;
     if (typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
-    if (payload.role !== "admin" && payload.role !== "public") return null;
     if (typeof payload.accountId !== "string" || !payload.accountId) return null;
     return payload;
   } catch {
@@ -47,8 +46,13 @@ export function decodeSession(token: string | undefined): SessionPayload | null 
   }
 }
 
-export function newSession(accountId: string, username: string, role: Role): string {
-  return encodeSession({ accountId, username, role, exp: Date.now() + SESSION_TTL_MS });
+/**
+ * The session says who you are and nothing else. Roles are per-dex and looked
+ * up on every request, so removing someone from a dex takes effect at once
+ * rather than whenever their cookie happens to expire.
+ */
+export function newSession(accountId: string, username: string): string {
+  return encodeSession({ accountId, username, exp: Date.now() + SESSION_TTL_MS });
 }
 
 /** Read the current session inside a server component or route handler. */
@@ -57,49 +61,41 @@ export async function getSession(): Promise<SessionPayload | null> {
   return decodeSession(jar.get(SESSION_COOKIE)?.value);
 }
 
-export async function requireRole(role: Role): Promise<SessionPayload | null> {
-  const session = await getSession();
-  if (!session) return null;
-  // Admins can do anything the public can.
-  if (role === "public") return session;
-  return session.role === "admin" ? session : null;
-}
+/* -------------------------------------------------------------------------- */
+/*  Join codes                                                                 */
+/* -------------------------------------------------------------------------- */
 
 /**
- * The access code is no longer a login — it is the invitation that lets someone
- * CREATE an account, and it decides whether that account is an admin or a
- * trainer. After sign-up people use a username and password.
+ * A dex's codes decide who may JOIN it and as what. They are not a login —
+ * once you are a member, authority comes from the membership row, so changing
+ * a code locks out future joiners without touching anyone already inside.
  *
- * Codes are compared server-side only; they never reach the client bundle.
- * There are deliberately NO fallback values here. This repo is public, so a
- * hardcoded default would just be the door code published on the internet.
+ * Codes live on the dex row rather than in the environment, because every dex
+ * on the deployment has its own.
  */
-let warnedAboutCodes = false;
-
-export function roleForCode(code: string): Role | null {
-  const adminCode = process.env.ADMIN_CODE?.trim();
-  const publicCode = process.env.PUBLIC_CODE?.trim();
-  if (!adminCode && !publicCode) return null;
-
-  // Setting both to the same value makes every single sign-up an admin, because
-  // the admin test below runs first. That is a miserable thing to discover from
-  // behaviour, so say it out loud in the server log the first time it matters.
-  if (adminCode && adminCode === publicCode && !warnedAboutCodes) {
-    warnedAboutCodes = true;
-    console.error(
-      "ADMIN_CODE and PUBLIC_CODE are set to the same value. Every account " +
-        "created with it becomes an ADMIN, able to approve entries and manage " +
-        "accounts. Set PUBLIC_CODE to a different code for trainers.",
-    );
-  }
-
+export function roleForDexCode(dex: Dex, code: string): MemberRole | null {
   const trimmed = code.trim();
+  if (!trimmed) return null;
+
   const pad = (v: string) => v.padEnd(32, "\0").slice(0, 32);
-  const isAdmin = Boolean(adminCode) && safeEqual(pad(trimmed), pad(adminCode!));
-  const isPublic = Boolean(publicCode) && safeEqual(pad(trimmed), pad(publicCode!));
-  if (isAdmin) return "admin";
-  if (isPublic) return "public";
+  const admin = dex.adminCode?.trim();
+  const member = dex.memberCode?.trim();
+
+  // Checked in this order, so an owner who sets both codes the same gets a dex
+  // full of admins. createDex refuses that, but a hand-edited row could do it.
+  if (admin && safeEqual(pad(trimmed), pad(admin))) return "admin";
+  if (member && safeEqual(pad(trimmed), pad(member))) return "member";
   return null;
+}
+
+/** Four digits, avoiding codes that read as a year or are trivially guessable. */
+export function generateCode(): string {
+  const bad = new Set(["0000", "1111", "1234", "4321", "9999", "1212", "0123"]);
+  for (;;) {
+    const n = Math.floor(Math.random() * 10000);
+    const code = String(n).padStart(4, "0");
+    if (!bad.has(code)) return code;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -122,11 +118,6 @@ export function readAlertToken(token: string | null): string | null {
   const accountId = token.slice(0, cut);
   const signature = token.slice(cut + 1);
   return safeEqual(signature, sign(`alerts:${accountId}`)) ? accountId : null;
-}
-
-export function requiredApprovals(): number {
-  const n = Number(process.env.REQUIRED_APPROVALS ?? 2);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2;
 }
 
 export { randomUUID };

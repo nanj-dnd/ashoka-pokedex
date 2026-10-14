@@ -8,40 +8,40 @@ import { api, sfx } from "@/lib/client";
 
 type Mode = "signin" | "signup";
 
-export function Gate() {
+/**
+ * Global sign-in. An account is not tied to any dex — it is just who you are.
+ * Getting into a particular dex happens afterwards, with that dex's code.
+ */
+export function Gate({ next }: { next?: string }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
-  const [code, setCode] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  function switchMode(next: Mode) {
+  function switchMode(m: Mode) {
     sfx.move();
-    setMode(next);
+    setMode(m);
     setError("");
     setConfirm("");
   }
 
   async function submit() {
     setError("");
-
-    if (mode === "signup") {
-      if (!code.trim()) return setError("ACCESS CODE REQUIRED");
-      if (password !== confirm) return setError("PASSWORDS DO NOT MATCH");
+    if (mode === "signup" && password !== confirm) {
+      return setError("PASSWORDS DO NOT MATCH");
     }
 
     setBusy(true);
     try {
-      const res = await api<{ account: { role: "admin" | "public" } }>("/api/session", {
+      await api("/api/session", {
         method: "POST",
-        body: JSON.stringify({ action: mode, code, username, password, email }),
+        body: JSON.stringify({ action: mode, username, password }),
       });
       sfx.good();
-      router.replace(res.account.role === "admin" ? "/admin" : "/dex");
+      router.replace(next || "/me");
       router.refresh();
     } catch (e) {
       sfx.bad();
@@ -55,7 +55,7 @@ export function Gate() {
   };
 
   return (
-    <Shell title="ASHOKA POKEDEX" subtitle="RESTRICTED DEVICE" actions={<SfxToggle />}>
+    <Shell title="DEX" subtitle="FIELD GUIDES FOR ANYTHING" actions={<SfxToggle />}>
       <div style={{ maxWidth: 400, margin: "0 auto", padding: "20px 0 40px" }}>
         <div className="tabs" style={{ justifyContent: "center" }}>
           <span className={`tab${mode === "signin" ? " on" : ""}`} onClick={() => switchMode("signin")}>
@@ -67,25 +67,6 @@ export function Gate() {
         </div>
 
         <div className="stack">
-          {mode === "signup" ? (
-            <div>
-              <div className="label" style={{ marginBottom: 6 }}>ACCESS CODE</div>
-              <input
-                className="code-input"
-                value={code}
-                onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 8)); setError(""); }}
-                onKeyDown={onEnter}
-                inputMode="numeric"
-                placeholder="----"
-                aria-label="Access code"
-                autoFocus
-              />
-              <div className="label" style={{ marginTop: 6 }}>
-                THE CODE DECIDES IF YOU JOIN AS A TRAINER OR AN ADMIN.
-              </div>
-            </div>
-          ) : null}
-
           <div>
             <div className="label" style={{ marginBottom: 6 }}>USERNAME</div>
             <input
@@ -97,7 +78,7 @@ export function Gate() {
               autoCorrect="off"
               autoComplete="username"
               placeholder="anshul"
-              autoFocus={mode === "signin"}
+              autoFocus
             />
           </div>
 
@@ -117,35 +98,17 @@ export function Gate() {
           </div>
 
           {mode === "signup" ? (
-            <>
-              <div>
-                <div className="label" style={{ marginBottom: 6 }}>CONFIRM PASSWORD</div>
-                <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  onKeyDown={onEnter}
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              <div>
-                <div className="label" style={{ marginBottom: 6 }}>EMAIL — OPTIONAL</div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={onEnter}
-                  autoComplete="email"
-                  placeholder="you@ashoka.edu.in"
-                  maxLength={200}
-                />
-                <div className="label" style={{ marginTop: 6 }}>
-                  ONLY FOR NEW ENTRIES AND EVOLUTIONS. LEAVE IT BLANK FOR NO MAIL.
-                </div>
-              </div>
-            </>
+            <div>
+              <div className="label" style={{ marginBottom: 6 }}>CONFIRM PASSWORD</div>
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                onKeyDown={onEnter}
+                autoComplete="new-password"
+                placeholder="••••••••"
+              />
+            </div>
           ) : null}
 
           {error ? <div className="err shake">{error}</div> : null}
@@ -156,7 +119,9 @@ export function Gate() {
         </div>
 
         <div className="label center" style={{ marginTop: 26, lineHeight: 2 }}>
-          {mode === "signin" ? "NO ACCOUNT? YOU NEED A CODE." : "ALREADY REGISTERED? SIGN IN."}
+          {mode === "signin"
+            ? "NEW HERE? MAKE AN ACCOUNT, THEN A DEX."
+            : "NO CODE NEEDED — A CODE GETS YOU INTO SOMEONE ELSE'S DEX."}
         </div>
       </div>
     </Shell>

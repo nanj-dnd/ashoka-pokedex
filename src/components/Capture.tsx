@@ -5,7 +5,8 @@ import { grabFrame, loadImage, processCapture, type CapturedImages } from "@/lib
 import { usePinchZoom } from "@/lib/usePinchZoom";
 import { api, sfx } from "@/lib/client";
 import { ZoomSlider } from "./Bits";
-import { BLANK_DRAFT, EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
+import { blankDraft, EntryFields, draftToBody, type EntryDraft } from "./EntryFields";
+import { useDex } from "@/lib/DexContext";
 
 /** Form accent. Rarity is earned later, so there's no rarity colour to borrow. */
 const INK = "#35d6e6";
@@ -49,7 +50,8 @@ export function Capture({
   zoomRef.current = zoom;
   usePinchZoom(stageRef, () => zoomRef.current, setZoom, live || Boolean(shot));
 
-  const [draft, setDraft] = useState<EntryDraft>(BLANK_DRAFT);
+  const { slug, config } = useDex();
+  const [draft, setDraft] = useState<EntryDraft>(() => blankDraft(config));
   const [traitDraft, setTraitDraft] = useState("");
 
   const [busy, setBusy] = useState(false);
@@ -135,7 +137,7 @@ export function Capture({
 
   function reset() {
     clearShot();
-    setDraft(BLANK_DRAFT);
+    setDraft(blankDraft(config));
     setTraitDraft("");
     setError("");
   }
@@ -152,7 +154,7 @@ export function Capture({
         { method: "POST", body: JSON.stringify({ sprite: shot.sprite, photo: shot.photo }) },
       );
 
-      await api("/api/creatures", {
+      await api(`/api/d/${slug}/creatures`, {
         method: "POST",
         body: JSON.stringify({ ...draftToBody(draft), spriteUrl, photoUrl }),
       });

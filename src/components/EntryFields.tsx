@@ -1,8 +1,9 @@
 "use client";
 
-import { BATCHES, HABITATS, STATS, STAT_HINT, TYPES, TYPE_HINT, batchLabel } from "@/lib/constants";
-import type { CreatureType } from "@/lib/constants";
 import { sfx } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
+import { LIMITS } from "@/lib/constants";
+import type { DexConfig } from "@/lib/dexConfig";
 import { TypeChip } from "./Bits";
 import type { Stats } from "@/lib/types";
 
@@ -10,30 +11,33 @@ import type { Stats } from "@/lib/types";
 export interface EntryDraft {
   name: string;
   title: string;
-  types: CreatureType[];
+  types: string[];
   habitat: string;
-  batch: string;
+  cohort: string;
   traits: string[];
   entry: string;
   quote: string;
   stats: Stats;
 }
 
-export const BLANK_STATS: Stats = {
-  presence: 50, charm: 50, volume: 50, volatility: 50, discipline: 50, burnout: 50,
-};
+/** Stat keys come from the dex, so a blank draft needs one to build against. */
+export function blankStats(config: DexConfig): Stats {
+  return Object.fromEntries(config.stats.map(({ key }) => [key, 50])) as Stats;
+}
 
-export const BLANK_DRAFT: EntryDraft = {
-  name: "",
-  title: "",
-  types: [],
-  habitat: HABITATS[0],
-  batch: BATCHES[0],
-  traits: [],
-  entry: "",
-  quote: "",
-  stats: BLANK_STATS,
-};
+export function blankDraft(config: DexConfig): EntryDraft {
+  return {
+    name: "",
+    title: "",
+    types: [],
+    habitat: config.habitats[0] ?? "",
+    cohort: config.cohortOptions[0] ?? "",
+    traits: [],
+    entry: "",
+    quote: "",
+    stats: blankStats(config),
+  };
+}
 
 /** Shape the API expects. Keeps the wire format in one place. */
 export function draftToBody(d: EntryDraft) {
@@ -42,7 +46,7 @@ export function draftToBody(d: EntryDraft) {
     title: d.title,
     types: d.types,
     habitat: d.habitat,
-    batch: d.batch,
+    cohort: d.cohort,
     characteristics: d.traits,
     entry: d.entry,
     quote: d.quote,
@@ -50,9 +54,9 @@ export function draftToBody(d: EntryDraft) {
   };
 }
 
-export function rollStats(): Stats {
+export function rollStats(config: DexConfig): Stats {
   return Object.fromEntries(
-    STATS.map(({ key }) => [key, 20 + Math.floor(Math.random() * 76)]),
+    config.stats.map(({ key }) => [key, 20 + Math.floor(Math.random() * 76)]),
   ) as Stats;
 }
 
@@ -79,14 +83,15 @@ export function EntryFields({
   traitDraft: string;
   onTraitDraft: (v: string) => void;
 }) {
+  const { config, typeHint } = useDex();
   const heading = (n: number, text: string) => (step ? `${step(n)}${text}` : text);
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) =>
     onChange({ ...draft, [key]: value });
 
-  function toggleType(t: CreatureType) {
+  function toggleType(t: string) {
     sfx.move();
     const has = draft.types.includes(t);
-    if (!has && draft.types.length >= 3) return;
+    if (!has && draft.types.length >= LIMITS.typesPerEntry) return;
     set("types", has ? draft.types.filter((x) => x !== t) : [...draft.types, t]);
   }
 
@@ -129,37 +134,51 @@ export function EntryFields({
           <div>
             <div className="label" style={{ marginBottom: 6 }}>HABITAT</div>
             <select value={draft.habitat} onChange={(e) => set("habitat", e.target.value)}>
-              {HABITATS.map((h) => <option key={h} value={h}>{h}</option>)}
+              {config.habitats.map((h) => <option key={h} value={h}>{h}</option>)}
             </select>
           </div>
-          <div>
-            <div className="label" style={{ marginBottom: 6 }}>BATCH</div>
-            <select value={draft.batch} onChange={(e) => set("batch", e.target.value)}>
-              {BATCHES.map((b) => <option key={b} value={b}>{batchLabel(b)}</option>)}
-            </select>
-          </div>
+          {/* The cohort field is whatever the owner called it, and vanishes
+              entirely when they left it blank. */}
+          {config.cohortLabel ? (
+            <div>
+              <div className="label" style={{ marginBottom: 6 }}>{config.cohortLabel}</div>
+              {config.cohortOptions.length ? (
+                <select value={draft.cohort} onChange={(e) => set("cohort", e.target.value)}>
+                  <option value="">—</option>
+                  {config.cohortOptions.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              ) : (
+                <input
+                  value={draft.cohort}
+                  onChange={(e) => set("cohort", e.target.value)}
+                  maxLength={LIMITS.cohort}
+                  placeholder={config.cohortLabel}
+                />
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* -------------------------------- types ---------------------------- */}
       <div className="plate stack">
         <div className="label">
-          {heading(3, `TYPING — PICK UP TO 3 (${draft.types.length}/3)`)}
+          {heading(3, `TYPING — PICK UP TO ${LIMITS.typesPerEntry} (${draft.types.length}/${LIMITS.typesPerEntry})`)}
         </div>
         <div className="chip-row">
-          {TYPES.map((t) => (
+          {config.types.map((t) => (
             <span
-              key={t}
-              onClick={() => toggleType(t)}
-              title={TYPE_HINT[t]}
-              style={{ cursor: "pointer", opacity: draft.types.includes(t) ? 1 : 0.42 }}
+              key={t.label}
+              onClick={() => toggleType(t.label)}
+              title={t.hint}
+              style={{ cursor: "pointer", opacity: draft.types.includes(t.label) ? 1 : 0.42 }}
             >
-              <TypeChip type={t} outline={!draft.types.includes(t)} />
+              <TypeChip type={t.label} outline={!draft.types.includes(t.label)} />
             </span>
           ))}
         </div>
         {draft.types.length ? (
-          <div className="body-text dim">{TYPE_HINT[draft.types[draft.types.length - 1]]}</div>
+          <div className="body-text dim">{typeHint(draft.types[draft.types.length - 1])}</div>
         ) : (
           <div className="body-text dim">Hover a type to see what it means.</div>
         )}
@@ -222,19 +241,19 @@ export function EntryFields({
       <div className="plate stack">
         <div className="toolbar" style={{ justifyContent: "space-between", marginBottom: 0 }}>
           <span className="label">{heading(5, "BASE STATS")}</span>
-          <button style={{ fontSize: 8 }} onClick={() => { sfx.open(); set("stats", rollStats()); }}>
+          <button style={{ fontSize: 8 }} onClick={() => { sfx.open(); set("stats", rollStats(config)); }}>
             ⚄ ROLL
           </button>
         </div>
-        {STATS.map(({ key, label }) => (
-          <div className="stat-row" key={key} title={STAT_HINT[key]}>
+        {config.stats.map(({ key, label, hint }) => (
+          <div className="stat-row" key={key} title={hint}>
             <span className="stat-name">{label}</span>
             <input
               className="slider"
               type="range"
               min={0}
               max={100}
-              value={draft.stats[key]}
+              value={draft.stats[key] ?? 50}
               onChange={(e) => set("stats", { ...draft.stats, [key]: Number(e.target.value) })}
               style={{ ["--bar-c" as string]: ink }}
             />

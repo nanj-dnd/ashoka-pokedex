@@ -1,8 +1,8 @@
-import { RARITIES, RARITY_FLAVOUR, type Rarity } from "./constants";
 import { alertToken } from "./session";
-import { listAccounts, saveCreature } from "./store";
+import { listAccountsByIds, listMembers, saveCreature } from "./store";
 import { mailEnabled, sendBatch, type Message } from "./mail";
-import type { Account, Creature } from "./types";
+import { rarityRank } from "./rarity";
+import type { Account, Creature, Dex } from "./types";
 
 /**
  * The two things worth an email: someone new made it into the dex, and someone
@@ -15,13 +15,23 @@ function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://primafacie.in").replace(/\/$/, "");
 }
 
+function dexLink(dex: Dex): string {
+  return `${siteUrl()}/d/${dex.slug}`;
+}
+
 function dexNo(creature: Creature): string {
   return creature.dexNumber ? `No.${String(creature.dexNumber).padStart(3, "0")}` : "";
 }
 
-/** Recipients: an address on file, and alerts still switched on. */
-async function audience(excludeUsername?: string): Promise<Account[]> {
-  const accounts = await listAccounts();
+/**
+ * Recipients: members OF THIS DEX with an address on file and alerts still on.
+ *
+ * Scoping to the dex is the whole point — someone who joined a conference dex
+ * must never get mail about a different community's entries.
+ */
+async function audience(dexId: string, excludeUsername?: string): Promise<Account[]> {
+  const members = await listMembers(dexId);
+  const accounts = await listAccountsByIds(members.map((m) => m.accountId));
   const skip = excludeUsername?.toLowerCase();
   return accounts.filter(
     (a) => a.alerts && a.email && a.username.toLowerCase() !== skip,
@@ -108,11 +118,11 @@ function build(
 /* -------------------------------------------------------------------------- */
 
 /** A new entry cleared the queue and is now in the public dex. */
-export async function notifyApproved(creature: Creature): Promise<void> {
+export async function notifyApproved(creature: Creature, dex: Dex): Promise<void> {
   if (!mailEnabled) return;
   try {
     // The person who submitted it already knows; everyone else is being told.
-    const to = await audience(creature.submittedBy);
+    const to = await audience(dex.id, creature.submittedBy);
     await sendBatch(
       build(
         to,
@@ -129,17 +139,22 @@ export async function notifyApproved(creature: Creature): Promise<void> {
 }
 
 /** An entry climbed a rarity tier because more of campus reported seeing them. */
-export async function notifyEvolved(creature: Creature, from: Rarity | null, to: Rarity): Promise<void> {
+export async function notifyEvolved(
+  creature: Creature,
+  dex: Dex,
+  from: string | null,
+  to: string,
+): Promise<void> {
   if (!mailEnabled) return;
   try {
-    const recipients = await audience();
+    const recipients = await audience(dex.id);
     await sendBatch(
       build(
         recipients,
         `${creature.name} evolved to ${to}`,
         "EVOLUTION",
         creature,
-        `${creature.name} just went ${from ? `from ${from} ` : ""}to ${to}. ${RARITY_FLAVOUR[to]}`,
+        `${creature.name} just went ${from ? `from ${from} ` : ""}to ${to}.`,
       ),
     );
   } catch (e) {
@@ -155,9 +170,17 @@ export async function notifyEvolved(creature: Creature, from: Rarity | null, to:
  * thing standing between one recount and an inbox full of duplicates: the tier
  * is written back, and only a strictly higher one ever fires again.
  */
-export async function announceRarity(creature: Creature, current: Rarity): Promise<boolean> {
+export async function announceRarity(
+  creature: Creature,
+  dex: Dex,
+  current: string,
+): Promise<boolean> {
   const seenAt = creature.notifiedRarity;
-  if (seenAt && RARITIES.indexOf(current) <= RARITIES.indexOf(seenAt)) return false;
+  // Compare by position on THIS dex's ladder; a renamed tier simply doesn't
+  // rank, which fails closed to "don't announce".
+  if (seenAt && rarityRank(current, dex.config) <= rarityRank(seenAt, dex.config)) {
+    return false;
+  }
 
   creature.notifiedRarity = current;
   await saveCreature(creature);
@@ -166,6 +189,6 @@ export async function announceRarity(creature: Creature, current: Rarity): Promi
   // already covered. Only a genuine climb is an evolution.
   if (!seenAt) return false;
 
-  await notifyEvolved(creature, seenAt, current);
+  await notifyEvolved(creature, dex, seenAt, current);
   return true;
 }

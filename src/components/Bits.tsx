@@ -1,39 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RARITY_STYLE, STATS, TYPE_COLOR, type CreatureType, type Rarity } from "@/lib/constants";
+import { useDex } from "@/lib/DexContext";
 import { sfxEnabled, toggleSfx, sfx } from "@/lib/client";
 import { MAX_ZOOM } from "@/lib/pixelate";
 import type { Stats } from "@/lib/types";
 
-export function TypeChip({ type, outline }: { type: CreatureType; outline?: boolean }) {
+export function TypeChip({ type, outline }: { type: string; outline?: boolean }) {
+  const { typeColor } = useDex();
   return (
     <span
       className={`chip${outline ? " outline" : ""}`}
-      style={{ ["--chip-color" as string]: TYPE_COLOR[type] ?? "#8b9bb4" }}
+      style={{ ["--chip-color" as string]: typeColor(type) }}
     >
       {type}
     </span>
   );
 }
 
-export function RarityBadge({ rarity }: { rarity: Rarity }) {
-  const s = RARITY_STYLE[rarity] ?? RARITY_STYLE.UNCOMMON;
+export function RarityBadge({ rarity }: { rarity: string }) {
+  const { config, rarity: tierFor } = useDex();
+  const tier = tierFor(rarity);
+  // The top rung gets the shimmer, whatever this dex decided to call it.
+  const isTop = config.rarities[config.rarities.length - 1]?.label === tier.label;
   return (
     <span
-      className={`rarity${rarity === "MYTHIC" ? " mythic" : ""}`}
-      style={{ ["--rar-ink" as string]: s.ink, ["--rar-glow" as string]: s.glow }}
+      className={`rarity${isTop ? " mythic" : ""}`}
+      style={{
+        ["--rar-ink" as string]: tier.color,
+        // Derived rather than configured: one colour per tier is enough for an
+        // owner to think about, and the glow is always the same colour softened.
+        ["--rar-glow" as string]: `${tier.color}88`,
+      }}
     >
-      {s.label}
+      {tier.label}
     </span>
   );
 }
 
 /** Six chunky pixel bars — the card's stat block. */
 export function StatBars({ stats, color }: { stats: Stats; color: string }) {
+  const { config } = useDex();
   return (
     <div>
-      {STATS.map(({ key, label }) => {
+      {config.stats.map(({ key, label }) => {
         const v = Math.max(0, Math.min(100, Number(stats?.[key] ?? 0)));
         return (
           <div className="stat-row" key={key}>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RARITY_FLAVOUR, RARITY_STYLE, batchLabel } from "@/lib/constants";
 import { sfx } from "@/lib/client";
+import { useDex } from "@/lib/DexContext";
 import { RarityBadge, StatBars, TypeChip } from "./Bits";
 import type { PublicCreature } from "@/lib/types";
 
@@ -27,7 +27,8 @@ export function CreatureDetail({
   // The grid shows sprites; opening an entry is where you confirm who it is, so
   // lead with the real photo when there is one.
   const [showPhoto, setShowPhoto] = useState(true);
-  const ink = (RARITY_STYLE[creature.rarity] ?? RARITY_STYLE.UNCOMMON).ink;
+  const { config } = useDex();
+  const ink = creature.rarityColor;
 
   // Stepping to the next entry should start on its photo, not inherit the
   // previous card's toggle.
@@ -160,7 +161,9 @@ export function CreatureDetail({
                 </div>
               ) : null}
               <div className="body-text dim" style={{ marginTop: 6 }}>
-                {RARITY_FLAVOUR[creature.rarity]}
+                {creature.activePlayers > 0
+                  ? `${Math.round(creature.share * 100)}% of this dex has seen them.`
+                  : "Nobody has reported seeing them yet."}
               </div>
             </div>
 
@@ -169,7 +172,7 @@ export function CreatureDetail({
                 <span className="label">HABITAT</span>
                 <span className="body-text">{creature.habitat || "UNKNOWN"}</span>
                 <span className="label">BATCH</span>
-                <span className="body-text">{batchLabel(creature.batch) || "UNKNOWN"}</span>
+                <span className="body-text">{creature.cohort || "UNKNOWN"}</span>
                 <span className="label">CAUGHT BY</span>
                 <span className="body-text">{creature.caughtBy || "UNKNOWN"}</span>
               </div>
